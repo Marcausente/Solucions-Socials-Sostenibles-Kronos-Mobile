@@ -31,8 +31,10 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
-/coverage/
+build/
+**/build/
+coverage/
+**/coverage/
 
 # Symbolication related
 app.*.symbols
@@ -98,6 +100,8 @@ android/captures/
 android/gradlew
 android/gradlew.bat
 android/local.properties
+android/**/build/
+android/**/*.iml
 android/.idea/workspace.xml
 android/.idea/tasks.xml
 android/.idea/gradle.xml

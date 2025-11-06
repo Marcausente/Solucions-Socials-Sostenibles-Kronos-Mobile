@@ -48,7 +48,7 @@ dependencies:
   signature: ^5.0.0
 
   # Selección de archivos (opcional, para futuras funcionalidades)
-  file_picker: ^6.0.0
+  file_picker: ^8.0.0
 
 dev_dependencies:
   flutter_test:
