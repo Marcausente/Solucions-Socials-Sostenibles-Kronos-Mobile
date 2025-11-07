@@ -31,11 +31,7 @@ class _RutaScreenState extends State<RutaScreen> {
           IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
         ],
       ),
-      body: const Center(
-        child: Text('Pantalla de Ruta (placeholder)'),
-      ),
+      body: const Center(child: Text('Pantalla de Ruta (placeholder)')),
     );
   }
 }
-
-
