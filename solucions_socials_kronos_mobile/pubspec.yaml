@@ -50,6 +50,9 @@ dependencies:
   # Selección de archivos (opcional, para futuras funcionalidades)
   file_picker: ^8.0.0
 
+  # HTTP para comprobaciones de servicios externos
+  http: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

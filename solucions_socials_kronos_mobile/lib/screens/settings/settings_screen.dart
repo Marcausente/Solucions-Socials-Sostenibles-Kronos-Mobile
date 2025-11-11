@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/theme_controller.dart';
+import '../../config/external_services_config.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -143,6 +146,9 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          // Estado de conexiones (debajo de divisas)
+          const _ConnectionsStatusCard(),
         ],
       ),
     );
@@ -174,6 +180,174 @@ class _SettingsCard extends StatelessWidget {
         ],
       ),
       child: child,
+    );
+  }
+}
+
+class _ConnectionsStatusCard extends StatefulWidget {
+  const _ConnectionsStatusCard();
+
+  @override
+  State<_ConnectionsStatusCard> createState() => _ConnectionsStatusCardState();
+}
+
+class _ConnectionsStatusCardState extends State<_ConnectionsStatusCard> {
+  bool? supabaseOk;
+  bool? holdedSolucionsOk;
+  bool? holdedMenjadorOk;
+  bool loading = false;
+  String? errorMsg;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAll();
+  }
+
+  Future<void> _checkAll() async {
+    setState(() {
+      loading = true;
+      errorMsg = null;
+    });
+    try {
+      final bool sb = await _checkSupabase();
+      final bool hs = await _checkHttp(
+        ExternalServicesConfig.holdedSolucionsUrl,
+        ExternalServicesConfig.holdedSolucionsToken,
+      );
+      final bool hm = await _checkHttp(
+        ExternalServicesConfig.holdedMenjadorUrl,
+        ExternalServicesConfig.holdedMenjadorToken,
+      );
+      setState(() {
+        supabaseOk = sb;
+        holdedSolucionsOk = hs;
+        holdedMenjadorOk = hm;
+      });
+    } catch (e) {
+      setState(() => errorMsg = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<bool> _checkSupabase() async {
+    try {
+      await Supabase.instance.client
+          .from('user_profiles')
+          .select('id')
+          .limit(1);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _checkHttp(String url, String token) async {
+    if (url.isEmpty) return false;
+    try {
+      final Map<String, String> headers = <String, String>{
+        'Accept': 'application/json',
+      };
+      if (token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+      final http.Response resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 8));
+      return resp.statusCode >= 200 && resp.statusCode < 400;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primary = Color(0xFF4CAF51);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+
+    Widget statusTile(String title, bool? ok) {
+      final bool isOk = ok == true;
+      final IconData icon = isOk ? Icons.check_circle : Icons.error;
+      final Color color = isOk ? primary : Colors.redAccent;
+      final String label = isOk
+          ? 'Conectado correctamente'
+          : 'Error con la conexión';
+      return ListTile(
+        leading: Icon(icon, color: color),
+        title: Text(
+          title,
+          style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(label, style: TextStyle(color: fg.withOpacity(0.7))),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.08),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Estado de conexiones',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: loading ? null : _checkAll,
+                icon: loading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (errorMsg != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                errorMsg!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ),
+          statusTile('Supabase', supabaseOk),
+          statusTile('Holded Solucions', holdedSolucionsOk),
+          statusTile('Holded Menjador', holdedMenjadorOk),
+        ],
+      ),
     );
   }
 }
