@@ -4,6 +4,9 @@ import 'config/supabase_config.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/ruta/ruta_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
+import 'screens/settings/settings_screen.dart';
+import 'package:provider/provider.dart';
+import 'theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +14,12 @@ Future<void> main() async {
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider<ThemeController>(
+      create: (_) => ThemeController(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -20,11 +28,23 @@ class MyApp extends StatelessWidget {
   // App root
   @override
   Widget build(BuildContext context) {
+    const Color primary = Color(0xFF4CAF51);
+    final ThemeController themeController = context.watch<ThemeController>();
     return MaterialApp(
       title: 'SSS Kronos Mobile',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: primary),
+        useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: primary,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: themeController.themeMode,
       home: const AuthGate(),
     );
   }
@@ -66,9 +86,15 @@ class _AuthGateState extends State<AuthGate> {
           .select('name, role, onboarding_completed')
           .eq('id', userId)
           .limit(1);
-      setState(() => _profile = rows.isNotEmpty ? rows.first : <String, dynamic>{'onboarding_completed': true});
+      setState(
+        () => _profile = rows.isNotEmpty
+            ? rows.first
+            : <String, dynamic>{'onboarding_completed': true},
+      );
     } catch (_) {
-      setState(() => _profile = <String, dynamic>{'onboarding_completed': true});
+      setState(
+        () => _profile = <String, dynamic>{'onboarding_completed': true},
+      );
     }
   }
 
@@ -80,6 +106,45 @@ class _AuthGateState extends State<AuthGate> {
     }
     final bool onboardingDone = _profile?['onboarding_completed'] == true;
     if (!onboardingDone) return const OnboardingScreen();
-    return const RutaScreen();
+    return const MainShell();
+  }
+}
+
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _index = 0;
+
+  static const Color primary = Color(0xFF4CAF51);
+
+  final List<Widget> _pages = const <Widget>[RutaScreen(), SettingsScreen()];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_index],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (int i) => setState(() => _index = i),
+        indicatorColor: primary.withOpacity(0.15),
+        destinations: const <NavigationDestination>[
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Hoja de Ruta',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Ajustes',
+          ),
+        ],
+      ),
+    );
   }
 }
