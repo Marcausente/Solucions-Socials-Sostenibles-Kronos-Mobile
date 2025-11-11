@@ -124,7 +124,7 @@ class _RutaScreenState extends State<RutaScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _ActionGrid(
+                      _ActionList(
                         primary: primary,
                         primaryDark: primaryDark,
                         onTapSubirCsv: () => _showSnack('Subir CSV'),
@@ -151,8 +151,8 @@ class _RutaScreenState extends State<RutaScreen> {
   }
 }
 
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid({
+class _ActionList extends StatelessWidget {
+  const _ActionList({
     required this.primary,
     required this.primaryDark,
     required this.onTapSubirCsv,
@@ -200,20 +200,19 @@ class _ActionGrid extends StatelessWidget {
       ),
     ];
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: items
-          .map(
-            (_ActionItem it) => _ActionCard(
-              label: it.label,
-              icon: it.icon,
-              primary: primary,
-              primaryDark: primaryDark,
-              onTap: it.onTap,
-            ),
-          )
-          .toList(),
+    return Column(
+      children: <Widget>[
+        for (int i = 0; i < items.length; i++) ...<Widget>[
+          _ActionButton(
+            label: items[i].label,
+            icon: items[i].icon,
+            primary: primary,
+            primaryDark: primaryDark,
+            onTap: items[i].onTap,
+          ),
+          if (i != items.length - 1) const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 }
@@ -225,8 +224,8 @@ class _ActionItem {
   final VoidCallback onTap;
 }
 
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
     required this.label,
     required this.icon,
     required this.primary,
@@ -248,49 +247,46 @@ class _ActionCard extends StatelessWidget {
       colors: <Color>[primary, primaryDark],
     );
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 150),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: isDark ? const Color(0xFF1F2227) : Colors.white,
-            border: Border.all(
-              color: isDark ? Colors.white10 : primary.withOpacity(0.15),
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 14,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.08),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: gradient,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: Colors.white),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TextStyle(color: fg, fontWeight: FontWeight.w600),
-                  ),
+                child: Icon(icon, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(color: fg, fontWeight: FontWeight.w600),
                 ),
-              ],
-            ),
+              ),
+              Icon(Icons.chevron_right, color: fg.withOpacity(0.5)),
+            ],
           ),
         ),
       ),
