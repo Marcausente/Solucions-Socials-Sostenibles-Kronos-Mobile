@@ -17,6 +17,8 @@ class SettingsScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.transparent,
         toolbarHeight: 80,
+        centerTitle: false,
+        titleSpacing: 16,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
