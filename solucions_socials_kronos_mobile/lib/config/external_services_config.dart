@@ -36,4 +36,18 @@ class ExternalServicesConfig {
     'GITHUB_API_BASE',
     defaultValue: 'https://api.github.com',
   );
+
+  // Holded API real (para llamadas autenticadas por empresa)
+  static const String holdedBaseUrl = String.fromEnvironment(
+    'HOLDED_BASE_URL',
+    defaultValue: 'https://api.holded.com/api/invoicing/v1',
+  );
+  static const String holdedApiKeySolucions = String.fromEnvironment(
+    'HOLDED_API_KEY_SOLUCIONS',
+    defaultValue: 'cfe50911f41fe8de885b167988773e09',
+  );
+  static const String holdedApiKeyMenjar = String.fromEnvironment(
+    'HOLDED_API_KEY_MENJAR',
+    defaultValue: '44758c63e2fc4dc5dd37a3eedc1ae580',
+  );
 }

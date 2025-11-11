@@ -537,13 +537,11 @@ class _ConnectionsStatusCardState extends State<_ConnectionsStatusCard> {
     });
     try {
       final bool sb = await _checkSupabase();
-      final bool hs = await _checkHttp(
-        ExternalServicesConfig.holdedSolucionsUrl,
-        ExternalServicesConfig.holdedSolucionsToken,
+      final bool hs = await _checkHolded(
+        ExternalServicesConfig.holdedApiKeySolucions,
       );
-      final bool hm = await _checkHttp(
-        ExternalServicesConfig.holdedMenjadorUrl,
-        ExternalServicesConfig.holdedMenjadorToken,
+      final bool hm = await _checkHolded(
+        ExternalServicesConfig.holdedApiKeyMenjar,
       );
       setState(() {
         supabaseOk = sb;
@@ -569,15 +567,18 @@ class _ConnectionsStatusCardState extends State<_ConnectionsStatusCard> {
     }
   }
 
-  Future<bool> _checkHttp(String url, String token) async {
-    if (url.isEmpty) return false;
+  Future<bool> _checkHolded(String apiKey) async {
+    if (apiKey.isEmpty) return false;
     try {
       final Map<String, String> headers = <String, String>{
         'Accept': 'application/json',
+        'key': apiKey,
       };
-      if (token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+      final Uri uri = Uri.parse(
+        '${ExternalServicesConfig.holdedBaseUrl}/contacts',
+      ).replace(queryParameters: <String, String>{'limit': '1'});
       final http.Response resp = await http
-          .get(Uri.parse(url))
+          .get(uri, headers: headers)
           .timeout(const Duration(seconds: 8));
       return resp.statusCode >= 200 && resp.statusCode < 400;
     } catch (_) {
