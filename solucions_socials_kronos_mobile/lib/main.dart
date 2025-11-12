@@ -6,6 +6,7 @@ import 'screens/ruta/ruta_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/user/user_screen.dart';
+import 'screens/welcome/welcome_screen.dart';
 import 'package:provider/provider.dart';
 import 'theme/theme_controller.dart';
 
@@ -61,6 +62,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   Session? _session;
   Map<String, dynamic>? _profile;
+  bool _showWelcome = false;
 
   @override
   void initState() {
@@ -69,7 +71,14 @@ class _AuthGateState extends State<AuthGate> {
     _session = client.auth.currentSession;
     _loadProfile();
     client.auth.onAuthStateChange.listen((AuthState state) async {
-      setState(() => _session = state.session);
+      final bool wasLoggedOut = _session == null && state.session != null;
+      setState(() {
+        _session = state.session;
+        // Si el usuario acaba de hacer login, mostrar pantalla de bienvenida
+        if (wasLoggedOut && state.session != null) {
+          _showWelcome = true;
+        }
+      });
       await _loadProfile();
     });
   }
@@ -101,12 +110,28 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_session == null) return const LoginScreen();
+    if (_session == null) {
+      setState(() => _showWelcome = false);
+      return const LoginScreen();
+    }
     if (_profile == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final bool onboardingDone = _profile?['onboarding_completed'] == true;
-    if (!onboardingDone) return const OnboardingScreen();
+    if (!onboardingDone) {
+      setState(() => _showWelcome = false);
+      return const OnboardingScreen();
+    }
+    // Mostrar pantalla de bienvenida si es un login reciente
+    if (_showWelcome) {
+      return WelcomeScreen(
+        onComplete: () {
+          setState(() {
+            _showWelcome = false;
+          });
+        },
+      );
+    }
     return const MainShell();
   }
 }
