@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
 import '../../services/hoja_ruta_service.dart';
-import '../../widgets/upload_excel_dialog.dart';
 import '../../utils/date_formatter.dart';
 
 class RutaScreen extends StatefulWidget {
@@ -260,8 +259,6 @@ class _RutaScreenState extends State<RutaScreen> {
                       _ActionList(
                         primary: primary,
                         primaryDark: primaryDark,
-                        onTapSubirCsv: _showUploadDialog,
-                        onTapEditar: () => _showSnack('Editar'),
                         onTapConfirmar: () =>
                             _showSnack('Confirmar Lista y material'),
                         onTapEliminar: () => _showSnack('Eliminar'),
@@ -311,22 +308,7 @@ class _RutaScreenState extends State<RutaScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _showUploadDialog() async {
-    final result = await showDialog(
-      context: context,
-      builder: (BuildContext context) => const UploadExcelDialog(),
-    );
-
-    if (result != null) {
-      // El archivo fue subido correctamente
-      // TODO: Aquí puedes actualizar la UI o hacer alguna acción adicional
-      if (mounted) {
-        _showSnack('Archivo procesado correctamente');
-        // Recargar datos después de subir
-        await _loadHojaRutaActual();
-      }
-    }
-  }
+  // Subida de hoja deshabilitada en esta versión
 
   Future<void> _editarHorasPersonal(Map<String, dynamic> empleado) async {
     if (!_canEditPersonal) {
@@ -368,8 +350,6 @@ class _ActionList extends StatelessWidget {
   const _ActionList({
     required this.primary,
     required this.primaryDark,
-    required this.onTapSubirCsv,
-    required this.onTapEditar,
     required this.onTapConfirmar,
     required this.onTapEliminar,
     required this.onTapHistorico,
@@ -377,8 +357,6 @@ class _ActionList extends StatelessWidget {
 
   final Color primary;
   final Color primaryDark;
-  final VoidCallback onTapSubirCsv;
-  final VoidCallback onTapEditar;
   final VoidCallback onTapConfirmar;
   final VoidCallback onTapEliminar;
   final VoidCallback onTapHistorico;
@@ -386,16 +364,6 @@ class _ActionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<_ActionItem> items = <_ActionItem>[
-      _ActionItem(
-        label: 'Subir hoja de ruta',
-        icon: Icons.upload_file,
-        onTap: onTapSubirCsv,
-      ),
-      _ActionItem(
-        label: 'Editar',
-        icon: Icons.edit_outlined,
-        onTap: onTapEditar,
-      ),
       _ActionItem(
         label: 'Confirmar Lista y material',
         icon: Icons.checklist_outlined,
