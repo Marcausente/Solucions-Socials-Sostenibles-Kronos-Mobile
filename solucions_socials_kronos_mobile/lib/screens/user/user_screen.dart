@@ -74,11 +74,17 @@ class _UserScreenState extends State<UserScreen> {
   Future<void> _editarPerfil() async {
     final String nombreActual = _userProfile?['name'] as String? ?? '';
     final String rolActual = _userProfile?['role'] as String? ?? '';
+    final String canonicalRole = RoleUtils.toCanonical(rolActual);
+    final bool canEditRole =
+        canonicalRole == 'admin' || canonicalRole == 'manager';
 
     final result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (BuildContext context) =>
-          _EditarPerfilDialog(nombreActual: nombreActual, rolActual: rolActual),
+      builder: (BuildContext context) => _EditarPerfilDialog(
+        nombreActual: nombreActual,
+        rolActual: canonicalRole,
+        canEditRole: canEditRole,
+      ),
     );
 
     if (result != null) {
@@ -624,10 +630,12 @@ class _EditarPerfilDialog extends StatefulWidget {
   const _EditarPerfilDialog({
     required this.nombreActual,
     required this.rolActual,
+    required this.canEditRole,
   });
 
   final String nombreActual;
   final String rolActual;
+  final bool canEditRole;
 
   @override
   State<_EditarPerfilDialog> createState() => _EditarPerfilDialogState();
@@ -733,14 +741,26 @@ class _EditarPerfilDialogState extends State<_EditarPerfilDialog> {
                   child: Text(RoleUtils.label(rol)),
                 );
               }).toList(),
-              onChanged: (String? nuevoRol) {
-                if (nuevoRol != null) {
-                  setState(() {
-                    _rolSeleccionado = nuevoRol;
-                  });
-                }
-              },
+              onChanged: widget.canEditRole
+                  ? (String? nuevoRol) {
+                      if (nuevoRol != null) {
+                        setState(() {
+                          _rolSeleccionado = nuevoRol;
+                        });
+                      }
+                    }
+                  : null,
             ),
+            if (!widget.canEditRole)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Solo administradores y jefes pueden cambiar el rol.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                ),
+              ),
             const SizedBox(height: 24),
             // Botones
             Row(
@@ -767,7 +787,9 @@ class _EditarPerfilDialogState extends State<_EditarPerfilDialog> {
                       }
                       Navigator.of(context).pop(<String, String>{
                         'nombre': nombre,
-                        'rol': _rolSeleccionado, // canónico
+                        'rol': widget.canEditRole
+                            ? _rolSeleccionado
+                            : RoleUtils.toCanonical(widget.rolActual),
                       });
                     },
                     style: ElevatedButton.styleFrom(
