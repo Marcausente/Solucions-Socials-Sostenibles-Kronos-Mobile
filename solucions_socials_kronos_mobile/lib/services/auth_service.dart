@@ -6,6 +6,19 @@ class AuthService {
 
   final SupabaseClient _client;
 
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String fullName,
+    required String role,
+  }) async {
+    await _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: <String, dynamic>{'name': fullName.trim(), 'role': role},
+    );
+  }
+
   Future<void> signInWithEmail({
     required String email,
     required String password,

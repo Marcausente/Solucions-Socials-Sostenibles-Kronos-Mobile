@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/auth_service.dart';
+import '../../utils/roles.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +14,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isRegister = false;
+  String _selectedRole = RoleUtils.canonical.last; // user
 
   late final AuthService _authService;
 
@@ -27,25 +31,40 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
-    final String email = _emailController.text;
+    final String email = _emailController.text.trim();
     final String password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      _showSnack('Introduce email y contraseña');
-      return;
-    }
     setState(() => _isSubmitting = true);
     try {
-      await _authService.signInWithEmail(email: email, password: password);
-      // La navegación la controlará el AuthGate escuchando cambios de sesión
+      if (_isRegister) {
+        final String fullName = _nameController.text.trim();
+        if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+          _showSnack('Completa nombre, email y contraseña');
+          return;
+        }
+        await _authService.signUp(
+          email: email,
+          password: password,
+          fullName: fullName,
+          role: _selectedRole,
+        );
+      } else {
+        if (email.isEmpty || password.isEmpty) {
+          _showSnack('Introduce email y contraseña');
+          return;
+        }
+        await _authService.signInWithEmail(email: email, password: password);
+      }
+      // AuthGate se encargará de la navegación cuando haya sesión
     } on AuthException catch (e) {
       _showSnack(e.message);
     } catch (_) {
-      _showSnack('Error inesperado al iniciar sesión');
+      _showSnack('Error inesperado. Inténtalo de nuevo.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -108,7 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Accede para continuar',
+                      _isRegister ? 'Crea tu cuenta' : 'Accede para continuar',
                       style: TextStyle(color: muted, fontSize: 14),
                     ),
                     const SizedBox(height: 20),
@@ -143,6 +162,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
+                              if (_isRegister) ...<Widget>[
+                                _AppleField(
+                                  controller: _nameController,
+                                  label: 'Nombre completo',
+                                  keyboardType: TextInputType.name,
+                                  icon: Icons.person_outline,
+                                ),
+                                const SizedBox(height: 12),
+                                _RolePicker(
+                                  value: _selectedRole,
+                                  onChanged: (String v) =>
+                                      setState(() => _selectedRole = v),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
                               _AppleField(
                                 controller: _emailController,
                                 label: 'Email',
@@ -167,7 +201,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Text('Iniciar sesión'),
+                                    : Text(
+                                        _isRegister
+                                            ? 'Crear cuenta'
+                                            : 'Iniciar sesión',
+                                      ),
                               ),
                             ],
                           ),
@@ -176,6 +214,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => setState(() => _isRegister = !_isRegister),
+                      child: Text(
+                        _isRegister
+                            ? '¿Ya tienes cuenta? Iniciar sesión'
+                            : '¿No tienes cuenta? Crear una',
+                        style: TextStyle(color: fg.withOpacity(0.8)),
+                      ),
+                    ),
                     Text(
                       'Protegido por Supabase',
                       style: TextStyle(color: muted, fontSize: 12),
@@ -296,6 +345,71 @@ class _PrimaryButton extends StatelessWidget {
           child: child,
         ),
       ),
+    );
+  }
+}
+
+class _RolePicker extends StatelessWidget {
+  const _RolePicker({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primary = Color(0xFF4CAF51);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+    final Map<String, String> descriptions = <String, String>{
+      'user': 'Acceso básico de la aplicación',
+      'manager': 'Gestión de equipos y reportes',
+      'management': 'Subida de archivos y análisis completo',
+      'admin': 'Control total del sistema (equipo técnico)',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        InputDecorator(
+          decoration: InputDecoration(
+            labelText: 'Rol',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            focusedBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(14)),
+              borderSide: BorderSide(color: primary, width: 1.5),
+            ),
+            prefixIcon: const Icon(Icons.badge_outlined),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              items: RoleUtils.canonical
+                  .map(
+                    (String r) => DropdownMenuItem<String>(
+                      value: r,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(RoleUtils.label(r), style: TextStyle(color: fg)),
+                          const SizedBox(height: 2),
+                          Text(
+                            descriptions[r] ?? '',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: fg.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (String? r) {
+                if (r != null) onChanged(r);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
