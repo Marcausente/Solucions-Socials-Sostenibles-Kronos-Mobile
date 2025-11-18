@@ -1190,23 +1190,115 @@ class _SimpleChecklist extends StatelessWidget {
           onChanged: (_) =>
               onToggle(tipo: tipo, tareaId: tareaId, current: completed),
           title: Text(task),
-          subtitle: assignedTo == null ? null : Text('Asignado: $assignedTo'),
-          secondary: PopupMenuButton<String>(
-            tooltip: 'Cambiar prioridad',
-            onSelected: (String v) =>
-                onChangePriority(tipo: tipo, tareaId: tareaId, priority: v),
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(value: 'alta', child: Text('Alta')),
-              const PopupMenuItem<String>(value: 'media', child: Text('Media')),
-              const PopupMenuItem<String>(value: 'baja', child: Text('Baja')),
-            ],
-            child: Chip(
-              backgroundColor: chipColor.withOpacity(0.15),
-              label: Text(
-                'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
-                style: TextStyle(color: chipColor),
-              ),
-              side: BorderSide(color: chipColor.withOpacity(0.4)),
+          subtitle: GestureDetector(
+            onTap: () {
+              showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                builder: (BuildContext ctx) {
+                  return SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        ListTile(
+                          leading: const Icon(
+                            Icons.priority_high,
+                            color: Colors.redAccent,
+                          ),
+                          title: const Text('Alta'),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChangePriority(
+                              tipo: tipo,
+                              tareaId: tareaId,
+                              priority: 'alta',
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.low_priority,
+                            color: Colors.amber[700],
+                          ),
+                          title: const Text('Media'),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChangePriority(
+                              tipo: tipo,
+                              tareaId: tareaId,
+                              priority: 'media',
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.arrow_downward,
+                            color: Colors.green,
+                          ),
+                          title: const Text('Baja'),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onChangePriority(
+                              tipo: tipo,
+                              tareaId: tareaId,
+                              priority: 'baja',
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+            child: Row(
+              children: <Widget>[
+                if (assignedTo != null) ...<Widget>[
+                  Flexible(
+                    child: Text(
+                      'Asignado: $assignedTo',
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '·',
+                    style: TextStyle(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: chipColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
+                  style: TextStyle(
+                    color: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -1241,7 +1333,12 @@ class _GeneralChecklist extends StatelessWidget {
   })
   onChangePriority;
 
-  Widget _section(String title, List<Map<String, dynamic>> items, String fase) {
+  Widget _section(
+    BuildContext context,
+    String title,
+    List<Map<String, dynamic>> items,
+    String fase,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1282,30 +1379,120 @@ class _GeneralChecklist extends StatelessWidget {
               current: completed,
             ),
             title: Text(task),
-            subtitle: assignedTo == null ? null : Text('Asignado: $assignedTo'),
-            secondary: PopupMenuButton<String>(
-              tooltip: 'Cambiar prioridad',
-              onSelected: (String v) => onChangePriority(
-                tipo: 'general',
-                fase: fase,
-                tareaId: tareaId,
-                priority: v,
-              ),
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(value: 'alta', child: Text('Alta')),
-                const PopupMenuItem<String>(
-                  value: 'media',
-                  child: Text('Media'),
-                ),
-                const PopupMenuItem<String>(value: 'baja', child: Text('Baja')),
-              ],
-              child: Chip(
-                backgroundColor: chipColor.withOpacity(0.15),
-                label: Text(
-                  'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
-                  style: TextStyle(color: chipColor),
-                ),
-                side: BorderSide(color: chipColor.withOpacity(0.4)),
+            subtitle: GestureDetector(
+              onTap: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  showDragHandle: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                  ),
+                  builder: (BuildContext ctx) {
+                    return SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          ListTile(
+                            leading: const Icon(
+                              Icons.priority_high,
+                              color: Colors.redAccent,
+                            ),
+                            title: const Text('Alta'),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onChangePriority(
+                                tipo: 'general',
+                                fase: fase,
+                                tareaId: tareaId,
+                                priority: 'alta',
+                              );
+                            },
+                          ),
+                          ListTile(
+                            leading: Icon(
+                              Icons.low_priority,
+                              color: Colors.amber[700],
+                            ),
+                            title: const Text('Media'),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onChangePriority(
+                                tipo: 'general',
+                                fase: fase,
+                                tareaId: tareaId,
+                                priority: 'media',
+                              );
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.arrow_downward,
+                              color: Colors.green,
+                            ),
+                            title: const Text('Baja'),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onChangePriority(
+                                tipo: 'general',
+                                fase: fase,
+                                tareaId: tareaId,
+                                priority: 'baja',
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+              child: Row(
+                children: <Widget>[
+                  if (assignedTo != null) ...<Widget>[
+                    Flexible(
+                      child: Text(
+                        'Asignado: $assignedTo',
+                        style: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '·',
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.5),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: chipColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
+                    style: TextStyle(
+                      color: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -1322,9 +1509,9 @@ class _GeneralChecklist extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _section('Pre-Evento', pre, 'preEvento'),
-          _section('Durante el evento', durante, 'duranteEvento'),
-          _section('Post-Evento', post, 'postEvento'),
+          _section(context, 'Pre-Evento', pre, 'preEvento'),
+          _section(context, 'Durante el evento', durante, 'duranteEvento'),
+          _section(context, 'Post-Evento', post, 'postEvento'),
         ],
       ),
     );
