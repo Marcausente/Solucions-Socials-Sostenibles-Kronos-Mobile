@@ -135,11 +135,15 @@ class HojaRutaService {
     String? fase,
     required String tareaId,
     required bool completed,
+    String? assignedTo,
   }) async {
     try {
       var query = _client
           .from('hojas_ruta_checklist')
-          .update(<String, dynamic>{'completed': completed})
+          .update(<String, dynamic>{
+            'completed': completed,
+            'assigned_to': assignedTo,
+          })
           .eq('hoja_ruta_id', hojaRutaId)
           .eq('tipo', tipo)
           .eq('tarea_id', tareaId);
@@ -147,6 +151,28 @@ class HojaRutaService {
       await query;
     } catch (e) {
       throw Exception('Error al actualizar la tarea del checklist: $e');
+    }
+  }
+
+  /// Actualiza la prioridad de una tarea del checklist
+  Future<void> actualizarPrioridadChecklist({
+    required String hojaRutaId,
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required String priority, // 'alta' | 'media' | 'baja'
+  }) async {
+    try {
+      var query = _client
+          .from('hojas_ruta_checklist')
+          .update(<String, dynamic>{'priority': priority})
+          .eq('hoja_ruta_id', hojaRutaId)
+          .eq('tipo', tipo)
+          .eq('tarea_id', tareaId);
+      query = fase == null ? query.filter('fase', 'is', null) : query.eq('fase', fase);
+      await query;
+    } catch (e) {
+      throw Exception('Error al actualizar la prioridad: $e');
     }
   }
 }

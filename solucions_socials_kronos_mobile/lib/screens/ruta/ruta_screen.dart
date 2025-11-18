@@ -27,6 +27,7 @@ class _RutaScreenState extends State<RutaScreen> {
       _userRole == 'management' ||
       _userRole == 'manager';
   bool get _canAddNotes => _userRole == 'admin' || _userRole == 'manager';
+  String? _userName;
   List<String> _notas = <String>[];
   Map<String, String> _horarios = <String, String>{};
   bool _loadingChecklist = true;
@@ -54,12 +55,17 @@ class _RutaScreenState extends State<RutaScreen> {
       if (uid == null) return;
       final List<Map<String, dynamic>> rows = await client
           .from('user_profiles')
-          .select('role')
+          .select('name, role')
           .eq('id', uid)
           .limit(1);
       if (mounted) {
         setState(() {
           _userRole = rows.isNotEmpty ? rows.first['role'] as String? : null;
+          _userName =
+              rows.isNotEmpty &&
+                  (rows.first['name'] as String?)?.trim().isNotEmpty == true
+              ? rows.first['name'] as String
+              : (client.auth.currentUser?.email ?? 'usuario');
         });
       }
     } catch (_) {
@@ -348,6 +354,7 @@ class _RutaScreenState extends State<RutaScreen> {
                   menus: _ckMenus,
                   bebidas: _ckBebidas,
                   onToggle: _toggleChecklistItem,
+                  onChangePriority: _changeChecklistPriority,
                   primary: primary,
                 ),
               ],
@@ -564,10 +571,36 @@ class _RutaScreenState extends State<RutaScreen> {
         fase: fase,
         tareaId: tareaId,
         completed: !current,
+        assignedTo: !current
+            ? (_userName ??
+                  Supabase.instance.client.auth.currentUser?.email ??
+                  'usuario')
+            : null,
       );
       await _loadChecklist();
     } catch (e) {
       _showSnack('No se pudo actualizar la tarea: $e');
+    }
+  }
+
+  Future<void> _changeChecklistPriority({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required String priority,
+  }) async {
+    if (_hojaRutaActual?['id'] == null) return;
+    try {
+      await _hojaRutaService.actualizarPrioridadChecklist(
+        hojaRutaId: _hojaRutaActual!['id'] as String,
+        tipo: tipo,
+        fase: fase,
+        tareaId: tareaId,
+        priority: priority,
+      );
+      await _loadChecklist();
+    } catch (e) {
+      _showSnack('No se pudo actualizar la prioridad: $e');
     }
   }
 
@@ -960,6 +993,7 @@ class _ChecklistCard extends StatelessWidget {
     required this.menus,
     required this.bebidas,
     required this.onToggle,
+    required this.onChangePriority,
     required this.primary,
   });
 
@@ -977,6 +1011,13 @@ class _ChecklistCard extends StatelessWidget {
     required bool current,
   })
   onToggle;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required String priority,
+  })
+  onChangePriority;
   final Color primary;
 
   @override
@@ -1060,21 +1101,25 @@ class _ChecklistCard extends StatelessWidget {
                           durante: generalDurante,
                           post: generalPost,
                           onToggle: onToggle,
+                          onChangePriority: onChangePriority,
                         ),
                         _SimpleChecklist(
                           items: equipamiento,
                           tipo: 'equipamiento',
                           onToggle: onToggle,
+                          onChangePriority: onChangePriority,
                         ),
                         _SimpleChecklist(
                           items: menus,
                           tipo: 'menus',
                           onToggle: onToggle,
+                          onChangePriority: onChangePriority,
                         ),
                         _SimpleChecklist(
                           items: bebidas,
                           tipo: 'bebidas',
                           onToggle: onToggle,
+                          onChangePriority: onChangePriority,
                         ),
                       ],
                     ),
@@ -1093,6 +1138,7 @@ class _SimpleChecklist extends StatelessWidget {
     required this.items,
     required this.tipo,
     required this.onToggle,
+    required this.onChangePriority,
   });
   final List<Map<String, dynamic>> items;
   final String tipo;
@@ -1103,6 +1149,13 @@ class _SimpleChecklist extends StatelessWidget {
     required bool current,
   })
   onToggle;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required String priority,
+  })
+  onChangePriority;
 
   @override
   Widget build(BuildContext context) {
@@ -1115,11 +1168,47 @@ class _SimpleChecklist extends StatelessWidget {
         final String tareaId = (it['tarea_id'] as String?) ?? '${it['id']}';
         final String task = (it['task'] as String?) ?? '';
         final bool completed = (it['completed'] as bool?) ?? false;
+        final String priority = ((it['priority'] as String?) ?? 'media')
+            .toLowerCase();
+        final String? assignedTo =
+            (it['assigned_to'] as String?)?.trim().isEmpty == true
+            ? null
+            : (it['assigned_to'] as String?);
+        Color chipColor;
+        switch (priority) {
+          case 'alta':
+            chipColor = Colors.redAccent;
+            break;
+          case 'baja':
+            chipColor = Colors.green;
+            break;
+          default:
+            chipColor = Colors.amber[700]!;
+        }
         return CheckboxListTile(
           value: completed,
           onChanged: (_) =>
               onToggle(tipo: tipo, tareaId: tareaId, current: completed),
           title: Text(task),
+          subtitle: assignedTo == null ? null : Text('Asignado: $assignedTo'),
+          secondary: PopupMenuButton<String>(
+            tooltip: 'Cambiar prioridad',
+            onSelected: (String v) =>
+                onChangePriority(tipo: tipo, tareaId: tareaId, priority: v),
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(value: 'alta', child: Text('Alta')),
+              const PopupMenuItem<String>(value: 'media', child: Text('Media')),
+              const PopupMenuItem<String>(value: 'baja', child: Text('Baja')),
+            ],
+            child: Chip(
+              backgroundColor: chipColor.withOpacity(0.15),
+              label: Text(
+                'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
+                style: TextStyle(color: chipColor),
+              ),
+              side: BorderSide(color: chipColor.withOpacity(0.4)),
+            ),
+          ),
         );
       },
     );
@@ -1132,6 +1221,7 @@ class _GeneralChecklist extends StatelessWidget {
     required this.durante,
     required this.post,
     required this.onToggle,
+    required this.onChangePriority,
   });
   final List<Map<String, dynamic>> pre;
   final List<Map<String, dynamic>> durante;
@@ -1143,6 +1233,13 @@ class _GeneralChecklist extends StatelessWidget {
     required bool current,
   })
   onToggle;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required String priority,
+  })
+  onChangePriority;
 
   Widget _section(String title, List<Map<String, dynamic>> items, String fase) {
     return Column(
@@ -1159,6 +1256,23 @@ class _GeneralChecklist extends StatelessWidget {
           final String tareaId = (it['tarea_id'] as String?) ?? '${it['id']}';
           final String task = (it['task'] as String?) ?? '';
           final bool completed = (it['completed'] as bool?) ?? false;
+          final String priority = ((it['priority'] as String?) ?? 'media')
+              .toLowerCase();
+          final String? assignedTo =
+              (it['assigned_to'] as String?)?.trim().isEmpty == true
+              ? null
+              : (it['assigned_to'] as String?);
+          Color chipColor;
+          switch (priority) {
+            case 'alta':
+              chipColor = Colors.redAccent;
+              break;
+            case 'baja':
+              chipColor = Colors.green;
+              break;
+            default:
+              chipColor = Colors.amber[700]!;
+          }
           return CheckboxListTile(
             value: completed,
             onChanged: (_) => onToggle(
@@ -1168,6 +1282,32 @@ class _GeneralChecklist extends StatelessWidget {
               current: completed,
             ),
             title: Text(task),
+            subtitle: assignedTo == null ? null : Text('Asignado: $assignedTo'),
+            secondary: PopupMenuButton<String>(
+              tooltip: 'Cambiar prioridad',
+              onSelected: (String v) => onChangePriority(
+                tipo: 'general',
+                fase: fase,
+                tareaId: tareaId,
+                priority: v,
+              ),
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(value: 'alta', child: Text('Alta')),
+                const PopupMenuItem<String>(
+                  value: 'media',
+                  child: Text('Media'),
+                ),
+                const PopupMenuItem<String>(value: 'baja', child: Text('Baja')),
+              ],
+              child: Chip(
+                backgroundColor: chipColor.withOpacity(0.15),
+                label: Text(
+                  'Prioridad ${priority[0].toUpperCase()}${priority.substring(1)}',
+                  style: TextStyle(color: chipColor),
+                ),
+                side: BorderSide(color: chipColor.withOpacity(0.4)),
+              ),
+            ),
           );
         }),
       ],
