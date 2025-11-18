@@ -29,6 +29,13 @@ class _RutaScreenState extends State<RutaScreen> {
   bool get _canAddNotes => _userRole == 'admin' || _userRole == 'manager';
   List<String> _notas = <String>[];
   Map<String, String> _horarios = <String, String>{};
+  bool _loadingChecklist = true;
+  List<Map<String, dynamic>> _ckEquipamiento = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _ckMenus = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _ckBebidas = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _ckGeneralPre = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _ckGeneralDurante = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _ckGeneralPost = <Map<String, dynamic>>[];
 
   @override
   void initState() {
@@ -150,6 +157,7 @@ class _RutaScreenState extends State<RutaScreen> {
         });
         // Cargar personal cuando se carga la hoja de ruta
         await _loadPersonal();
+        await _loadChecklist();
       }
     } catch (e) {
       if (mounted) {
@@ -329,6 +337,19 @@ class _RutaScreenState extends State<RutaScreen> {
                   onDelete: _deleteNota,
                   primary: primary,
                 ),
+                const SizedBox(height: 16),
+                // Sección checklist de servicio
+                _ChecklistCard(
+                  loading: _loadingChecklist,
+                  generalPre: _ckGeneralPre,
+                  generalDurante: _ckGeneralDurante,
+                  generalPost: _ckGeneralPost,
+                  equipamiento: _ckEquipamiento,
+                  menus: _ckMenus,
+                  bebidas: _ckBebidas,
+                  onToggle: _toggleChecklistItem,
+                  primary: primary,
+                ),
               ],
             ),
           );
@@ -473,6 +494,80 @@ class _RutaScreenState extends State<RutaScreen> {
       }
     } catch (e) {
       _showSnack('Error al eliminar la nota: $e');
+    }
+  }
+
+  Future<void> _loadChecklist() async {
+    if (_hojaRutaActual?['id'] == null) return;
+    setState(() => _loadingChecklist = true);
+    try {
+      final String hojaId = _hojaRutaActual!['id'] as String;
+      final List<Map<String, dynamic>> items = await _hojaRutaService
+          .getChecklist(hojaId);
+      final List<Map<String, dynamic>> equip = <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> menus = <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> bebidas = <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> gPre = <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> gDurante = <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> gPost = <Map<String, dynamic>>[];
+      for (final Map<String, dynamic> it in items) {
+        final String tipo = (it['tipo'] as String?)?.toLowerCase() ?? '';
+        if (tipo == 'equipamiento') {
+          equip.add(it);
+        } else if (tipo == 'menus') {
+          menus.add(it);
+        } else if (tipo == 'bebidas') {
+          bebidas.add(it);
+        } else if (tipo == 'general') {
+          final String fase = (it['fase'] as String?)?.toLowerCase() ?? '';
+          if (fase == 'preevento' || fase == 'pre-evento' || fase == 'pre') {
+            gPre.add(it);
+          } else if (fase == 'duranteevento' ||
+              fase == 'durante-el-evento' ||
+              fase == 'durante') {
+            gDurante.add(it);
+          } else {
+            gPost.add(it);
+          }
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _ckEquipamiento = equip;
+          _ckMenus = menus;
+          _ckBebidas = bebidas;
+          _ckGeneralPre = gPre;
+          _ckGeneralDurante = gDurante;
+          _ckGeneralPost = gPost;
+          _loadingChecklist = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingChecklist = false);
+        _showSnack('Error al cargar checklist: $e');
+      }
+    }
+  }
+
+  Future<void> _toggleChecklistItem({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required bool current,
+  }) async {
+    if (_hojaRutaActual?['id'] == null) return;
+    try {
+      await _hojaRutaService.actualizarTareaChecklist(
+        hojaRutaId: _hojaRutaActual!['id'] as String,
+        tipo: tipo,
+        fase: fase,
+        tareaId: tareaId,
+        completed: !current,
+      );
+      await _loadChecklist();
+    } catch (e) {
+      _showSnack('No se pudo actualizar la tarea: $e');
     }
   }
 
@@ -849,6 +944,239 @@ class _NotasCard extends StatelessWidget {
                 ],
               ],
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChecklistCard extends StatelessWidget {
+  const _ChecklistCard({
+    required this.loading,
+    required this.generalPre,
+    required this.generalDurante,
+    required this.generalPost,
+    required this.equipamiento,
+    required this.menus,
+    required this.bebidas,
+    required this.onToggle,
+    required this.primary,
+  });
+
+  final bool loading;
+  final List<Map<String, dynamic>> generalPre;
+  final List<Map<String, dynamic>> generalDurante;
+  final List<Map<String, dynamic>> generalPost;
+  final List<Map<String, dynamic>> equipamiento;
+  final List<Map<String, dynamic>> menus;
+  final List<Map<String, dynamic>> bebidas;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required bool current,
+  })
+  onToggle;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : primary.withOpacity(0.15),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Checklist de servicio',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            DefaultTabController(
+              length: 4,
+              child: Column(
+                children: <Widget>[
+                  TabBar(
+                    isScrollable: true,
+                    labelColor: primary,
+                    indicatorColor: primary,
+                    tabs: const <Widget>[
+                      Tab(text: 'General'),
+                      Tab(text: 'Equipamiento'),
+                      Tab(text: 'Menús'),
+                      Tab(text: 'Bebidas'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 320,
+                    child: TabBarView(
+                      children: <Widget>[
+                        _GeneralChecklist(
+                          pre: generalPre,
+                          durante: generalDurante,
+                          post: generalPost,
+                          onToggle: onToggle,
+                        ),
+                        _SimpleChecklist(
+                          items: equipamiento,
+                          tipo: 'equipamiento',
+                          onToggle: onToggle,
+                        ),
+                        _SimpleChecklist(
+                          items: menus,
+                          tipo: 'menus',
+                          onToggle: onToggle,
+                        ),
+                        _SimpleChecklist(
+                          items: bebidas,
+                          tipo: 'bebidas',
+                          onToggle: onToggle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimpleChecklist extends StatelessWidget {
+  const _SimpleChecklist({
+    required this.items,
+    required this.tipo,
+    required this.onToggle,
+  });
+  final List<Map<String, dynamic>> items;
+  final String tipo;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required bool current,
+  })
+  onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: items.length,
+      itemBuilder: (BuildContext context, int i) {
+        final Map<String, dynamic> it = items[i];
+        final String tareaId = (it['tarea_id'] as String?) ?? '${it['id']}';
+        final String task = (it['task'] as String?) ?? '';
+        final bool completed = (it['completed'] as bool?) ?? false;
+        return CheckboxListTile(
+          value: completed,
+          onChanged: (_) =>
+              onToggle(tipo: tipo, tareaId: tareaId, current: completed),
+          title: Text(task),
+        );
+      },
+    );
+  }
+}
+
+class _GeneralChecklist extends StatelessWidget {
+  const _GeneralChecklist({
+    required this.pre,
+    required this.durante,
+    required this.post,
+    required this.onToggle,
+  });
+  final List<Map<String, dynamic>> pre;
+  final List<Map<String, dynamic>> durante;
+  final List<Map<String, dynamic>> post;
+  final void Function({
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required bool current,
+  })
+  onToggle;
+
+  Widget _section(String title, List<Map<String, dynamic>> items, String fase) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        ...items.map((Map<String, dynamic> it) {
+          final String tareaId = (it['tarea_id'] as String?) ?? '${it['id']}';
+          final String task = (it['task'] as String?) ?? '';
+          final bool completed = (it['completed'] as bool?) ?? false;
+          return CheckboxListTile(
+            value: completed,
+            onChanged: (_) => onToggle(
+              tipo: 'general',
+              fase: fase,
+              tareaId: tareaId,
+              current: completed,
+            ),
+            title: Text(task),
+          );
+        }),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(right: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _section('Pre-Evento', pre, 'preEvento'),
+          _section('Durante el evento', durante, 'duranteEvento'),
+          _section('Post-Evento', post, 'postEvento'),
         ],
       ),
     );

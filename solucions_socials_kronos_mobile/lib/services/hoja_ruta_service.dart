@@ -112,4 +112,41 @@ class HojaRutaService {
       throw Exception('Error al actualizar las notas: $e');
     }
   }
+
+  /// Obtiene el checklist completo de una hoja de ruta
+  Future<List<Map<String, dynamic>>> getChecklist(String hojaRutaId) async {
+    try {
+      final List<dynamic> data = await _client
+          .from('hojas_ruta_checklist')
+          .select('id, hoja_ruta_id, tipo, fase, tarea_id, task, completed, assigned_to, priority')
+          .eq('hoja_ruta_id', hojaRutaId)
+          .order('tipo')
+          .order('fase');
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Error al obtener el checklist: $e');
+    }
+  }
+
+  /// Marca/Desmarca una tarea del checklist
+  Future<void> actualizarTareaChecklist({
+    required String hojaRutaId,
+    required String tipo,
+    String? fase,
+    required String tareaId,
+    required bool completed,
+  }) async {
+    try {
+      var query = _client
+          .from('hojas_ruta_checklist')
+          .update(<String, dynamic>{'completed': completed})
+          .eq('hoja_ruta_id', hojaRutaId)
+          .eq('tipo', tipo)
+          .eq('tarea_id', tareaId);
+      query = fase == null ? query.filter('fase', 'is', null) : query.eq('fase', fase);
+      await query;
+    } catch (e) {
+      throw Exception('Error al actualizar la tarea del checklist: $e');
+    }
+  }
 }
