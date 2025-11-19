@@ -358,6 +358,9 @@ class _RutaScreenState extends State<RutaScreen> {
                   primary: primary,
                 ),
                 const SizedBox(height: 16),
+                // Apartado: Menús
+                _MenusCard(items: _ckMenus, primary: primary),
+                const SizedBox(height: 16),
                 // Apartado: Equipamientos y Material
                 _EquipamientosMaterialCard(
                   items: _ckEquipamiento,
@@ -2525,5 +2528,201 @@ class _EquipamientosMaterialCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _MenusCard extends StatelessWidget {
+  const _MenusCard({required this.items, required this.primary});
+
+  final List<Map<String, dynamic>> items;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+
+    // Agrupar por categoría (si no existe, inferir desde el texto)
+    final Map<String, List<Map<String, dynamic>>> grouped =
+        <String, List<Map<String, dynamic>>>{};
+    for (final Map<String, dynamic> it in items) {
+      final String task = (it['task'] as String?)?.trim() ?? '';
+      final String rawCat = (it['categoria'] ?? it['category'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+      final String cat = rawCat.isEmpty ? _inferMenuCategory(task) : rawCat;
+      grouped.putIfAbsent(cat, () => <Map<String, dynamic>>[]).add(it);
+    }
+
+    // Orden preferido de categorías
+    const List<String> order = <String>[
+      'aperitivos',
+      'entrantes',
+      'primeros',
+      'segundos',
+      'postres',
+      'infantil',
+      'otros',
+    ];
+
+    // Mapa a etiquetas bonitas
+    String labelFor(String key) {
+      switch (key) {
+        case 'aperitivos':
+          return 'Aperitivos';
+        case 'entrantes':
+          return 'Entrantes';
+        case 'primeros':
+          return 'Primeros';
+        case 'segundos':
+          return 'Segundos';
+        case 'postres':
+          return 'Postres';
+        case 'infantil':
+          return 'Menú infantil';
+        default:
+          return 'Otros';
+      }
+    }
+
+    final List<String> categories = <String>[
+      ...order.where((String k) => grouped.containsKey(k)),
+      ...grouped.keys.where((String k) => !order.contains(k)),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : primary.withOpacity(0.15),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Menús',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Sin menús definidos',
+                style: TextStyle(
+                  color: fg.withOpacity(0.6),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (int c = 0; c < categories.length; c++) ...<Widget>[
+                  if (c > 0) const SizedBox(height: 10),
+                  Text(
+                    labelFor(categories[c]),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...grouped[categories[c]]!.asMap().entries.map((
+                    MapEntry<int, Map<String, dynamic>> entry,
+                  ) {
+                    final Map<String, dynamic> it = entry.value;
+                    final String task = (it['task'] as String?) ?? '—';
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: entry.key == grouped[categories[c]]!.length - 1
+                            ? 0
+                            : 6,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            width: 6,
+                            height: 6,
+                            margin: const EdgeInsets.only(top: 7),
+                            decoration: BoxDecoration(
+                              color: primary,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              task,
+                              style: TextStyle(color: fg, fontSize: 16),
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _inferMenuCategory(String task) {
+    final String t = task.toLowerCase();
+    if (t.contains('aperitivo') || t.contains('snack') || t.contains('pica')) {
+      return 'aperitivos';
+    }
+    if (t.contains('entrante') || t.contains('tapa') || t.contains('starter')) {
+      return 'entrantes';
+    }
+    if (t.contains('primero') || t.contains('pasta') || t.contains('sopa')) {
+      return 'primeros';
+    }
+    if (t.contains('segundo') ||
+        t.contains('carne') ||
+        t.contains('pescado') ||
+        t.contains('principal') ||
+        t.contains('arro')) {
+      return 'segundos';
+    }
+    if (t.contains('postre') || t.contains('dulce') || t.contains('dessert')) {
+      return 'postres';
+    }
+    if (t.contains('infantil') || t.contains('niñ') || t.contains('kids')) {
+      return 'infantil';
+    }
+    return 'otros';
   }
 }
