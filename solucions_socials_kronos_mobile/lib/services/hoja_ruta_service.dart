@@ -117,27 +117,6 @@ class HojaRutaService {
     }
   }
 
-  /// Revierte la firma (desverifica) de una hoja de ruta
-  Future<void> desfirmarHojaRuta({required String hojaId}) async {
-    try {
-      final Map<String, dynamic> firmaInfo = <String, dynamic>{
-        'firmado': false,
-        'firmado_por': null,
-        'fecha_firma': null,
-        'firma_data': null,
-      };
-      await _client
-          .from('hojas_ruta')
-          .update(<String, dynamic>{
-            'firma_info': firmaInfo,
-            'firma_responsable': null,
-          })
-          .eq('id', hojaId);
-    } catch (e) {
-      throw Exception('Error al desverificar la hoja de ruta: $e');
-    }
-  }
-
   /// Obtiene el personal de una hoja de ruta
   Future<List<Map<String, dynamic>>> getPersonalHojaRuta(
     String hojaRutaId,

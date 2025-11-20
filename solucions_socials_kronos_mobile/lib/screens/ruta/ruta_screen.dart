@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../main.dart';
 import '../../services/auth_service.dart';
@@ -301,9 +302,7 @@ class _RutaScreenState extends State<RutaScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      if ((_hojaRutaActual?['firma_info'] is Map) &&
-                          ((_hojaRutaActual!['firma_info'] as Map)['firmado'] ==
-                              true)) ...<Widget>[
+                      if (_estaFirmada) ...<Widget>[
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -326,7 +325,7 @@ class _RutaScreenState extends State<RutaScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Verificado por: ${((_hojaRutaActual!['firma_info'] as Map)['firmado_por'] as String?) ?? '—'}',
+                                'Verificado por: ${_firmadoPor ?? '—'}',
                                 style: const TextStyle(
                                   color: primary,
                                   fontWeight: FontWeight.w700,
@@ -340,19 +339,7 @@ class _RutaScreenState extends State<RutaScreen> {
                       _ActionList(
                         primary: primary,
                         primaryDark: primaryDark,
-                        confirmDisabled:
-                            (_hojaRutaActual?['firma_info'] is Map &&
-                            ((_hojaRutaActual!['firma_info']
-                                    as Map)['firmado'] ==
-                                true)),
-                        onTapDesverificar:
-                            ((_hojaRutaActual?['firma_info'] is Map) &&
-                                (((_hojaRutaActual!['firma_info']
-                                        as Map)['firmado'] ==
-                                    true)) &&
-                                _canAddNotes)
-                            ? _desverificarListaYMaterial
-                            : null,
+                        confirmDisabled: _estaFirmada,
                         onTapConfirmar: _confirmarListaYMaterial,
                         onTapHistorico: () {
                           Navigator.of(context).push(
@@ -538,41 +525,6 @@ class _RutaScreenState extends State<RutaScreen> {
       _showSnack('Hoja verificada por $nombre');
     } catch (e) {
       _showSnack('No se pudo verificar: $e');
-    }
-  }
-
-  Future<void> _desverificarListaYMaterial() async {
-    if (_hojaRutaActual?['id'] == null) return;
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Desverificar hoja'),
-          content: const Text(
-            '¿Seguro que quieres desverificar esta hoja? Se permitirá editar de nuevo.',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Desverificar'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirm != true) return;
-    try {
-      await _hojaRutaService.desfirmarHojaRuta(
-        hojaId: _hojaRutaActual!['id'] as String,
-      );
-      await _loadHojaRutaActual();
-      _showSnack('Hoja desverificada');
-    } catch (e) {
-      _showSnack('No se pudo desverificar: $e');
     }
   }
 
@@ -844,6 +796,42 @@ class _RutaScreenState extends State<RutaScreen> {
     // TODO: Implementar vista de datos del empleado
     _showSnack('Ver datos de ${empleado['nombre']} (próximamente)');
   }
+
+  bool get _estaFirmada {
+    final dynamic rawInfo = _hojaRutaActual?['firma_info'];
+    if (rawInfo is Map) {
+      return rawInfo['firmado'] == true;
+    }
+    if (rawInfo is String) {
+      try {
+        final dynamic decoded = jsonDecode(rawInfo);
+        if (decoded is Map) {
+          return decoded['firmado'] == true;
+        }
+      } catch (_) {}
+    }
+    final dynamic fr = _hojaRutaActual?['firma_responsable'];
+    return fr is String && fr.trim().isNotEmpty;
+  }
+
+  String? get _firmadoPor {
+    final dynamic rawInfo = _hojaRutaActual?['firma_info'];
+    if (rawInfo is Map) {
+      final dynamic nombre = rawInfo['firmado_por'];
+      if (nombre is String && nombre.trim().isNotEmpty) return nombre;
+    } else if (rawInfo is String) {
+      try {
+        final dynamic decoded = jsonDecode(rawInfo);
+        if (decoded is Map) {
+          final dynamic nombre = decoded['firmado_por'];
+          if (nombre is String && nombre.trim().isNotEmpty) return nombre;
+        }
+      } catch (_) {}
+    }
+    final dynamic fr = _hojaRutaActual?['firma_responsable'];
+    if (fr is String && fr.trim().isNotEmpty) return fr;
+    return null;
+  }
 }
 
 class _ActionList extends StatelessWidget {
@@ -851,7 +839,6 @@ class _ActionList extends StatelessWidget {
     required this.primary,
     required this.primaryDark,
     required this.confirmDisabled,
-    this.onTapDesverificar,
     required this.onTapConfirmar,
     required this.onTapHistorico,
   });
@@ -859,7 +846,6 @@ class _ActionList extends StatelessWidget {
   final Color primary;
   final Color primaryDark;
   final bool confirmDisabled;
-  final VoidCallback? onTapDesverificar;
   final VoidCallback onTapConfirmar;
   final VoidCallback onTapHistorico;
 
@@ -872,12 +858,6 @@ class _ActionList extends StatelessWidget {
         onTap: onTapConfirmar,
         disabled: confirmDisabled,
       ),
-      if (onTapDesverificar != null)
-        _ActionItem(
-          label: 'Desverificar',
-          icon: Icons.remove_done,
-          onTap: onTapDesverificar!,
-        ),
       _ActionItem(
         label: 'Histórico',
         icon: Icons.history,
