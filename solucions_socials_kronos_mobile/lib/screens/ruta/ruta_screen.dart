@@ -6,6 +6,8 @@ import '../../services/auth_service.dart';
 import '../../services/hoja_ruta_service.dart';
 import '../../utils/date_formatter.dart';
 import 'ruta_historico_screen.dart';
+import '../../services/holded_service.dart';
+import '../../services/holded_client.dart';
 
 class RutaScreen extends StatefulWidget {
   const RutaScreen({super.key});
@@ -808,9 +810,13 @@ class _RutaScreenState extends State<RutaScreen> {
   }
 
   void _verDatosEmpleado(Map<String, dynamic> empleado) {
-    final String empleadoId = empleado['empleado_id'] as String? ?? '';
+    final String empleadoId =
+        (empleado['empleado_id'] ?? empleado['empleadoId'] ?? '').toString();
     final String nombre = empleado['nombre'] as String? ?? 'Empleado';
-    if (empleadoId.isEmpty) {
+    final Map<String, dynamic>? empleadoObj = empleado['empleado'] is Map
+        ? (empleado['empleado'] as Map).cast<String, dynamic>()
+        : null;
+    if (empleadoId.isEmpty && (empleadoObj == null || empleadoObj.isEmpty)) {
       _showSnack('No se encontró el identificador del empleado');
       return;
     }
@@ -832,6 +838,7 @@ class _RutaScreenState extends State<RutaScreen> {
               primary: primary,
               service: _hojaRutaService,
               controller: scrollController,
+              initialData: empleadoObj,
             );
           },
         );
@@ -1020,12 +1027,14 @@ class _EmpleadoDetalleSheet extends StatefulWidget {
     required this.primary,
     required this.service,
     required this.controller,
+    this.initialData,
   });
   final String empleadoId;
   final String nombre;
   final Color primary;
   final HojaRutaService service;
   final ScrollController controller;
+  final Map<String, dynamic>? initialData;
 
   @override
   State<_EmpleadoDetalleSheet> createState() => _EmpleadoDetalleSheetState();
@@ -1038,28 +1047,134 @@ class _EmpleadoDetalleSheetState extends State<_EmpleadoDetalleSheet> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.initialData != null && widget.initialData!.isNotEmpty) {
+      _data = widget.initialData;
+      _loading = false;
+      // enriquecer en background
+      Future<void>(() async => _load());
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    Map<String, dynamic>? d;
+    // Intento 1: Holded por ID (Solucions/Menjar)
+    final HoldedService holded = HoldedService(HoldedClient());
     try {
-      final Map<String, dynamic>? d = await widget.service.getEmpleadoDetalle(
-        widget.empleadoId,
+      d = await holded.getContactById(
+        company: HoldedCompany.solucions,
+        contactId: widget.empleadoId,
       );
-      if (mounted) {
-        setState(() {
-          _data = d;
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al cargar empleado: $e')));
+    } catch (_) {}
+    if (d == null) {
+      try {
+        d = await holded.getContactById(
+          company: HoldedCompany.menjar,
+          contactId: widget.empleadoId,
+        );
+      } catch (_) {}
     }
+    // Intento 2: búsqueda por nombre en contactos si por ID no existe
+    if (d == null) {
+      try {
+        final List<dynamic> sol = await holded.getAllContacts(
+          HoldedCompany.solucions,
+        );
+        final List<dynamic> men = await holded.getAllContacts(
+          HoldedCompany.menjar,
+        );
+        final List<Map<String, dynamic>> all = <Map<String, dynamic>>[
+          ...sol.cast<Map<String, dynamic>>(),
+          ...men.cast<Map<String, dynamic>>(),
+        ];
+        d = _findBestContactMatch(all, widget.nombre);
+      } catch (_) {}
+    }
+    // Último recurso: alguna tabla propia si existiera
+    d ??= await widget.service.getEmpleadoDetalle(widget.empleadoId);
+    if (mounted) {
+      setState(() {
+        _data = d;
+        _loading = false;
+      });
+    }
+  }
+
+  Map<String, dynamic>? _findBestContactMatch(
+    List<Map<String, dynamic>> contacts,
+    String nombre,
+  ) {
+    final String target = _normalizeName(nombre);
+    Map<String, dynamic>? best;
+    int bestScore = -1;
+    for (final Map<String, dynamic> c in contacts) {
+      final String name = _normalizeName(
+        (c['name'] as String?) ??
+            (c['legalName'] as String?) ??
+            (c['fullname'] as String?) ??
+            '',
+      );
+      if (name.isEmpty) continue;
+      final int score = _nameSimilarityScore(target, name);
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    // Consideramos match solo si la similitud mínima supera umbral
+    return bestScore >= 60 ? _mapHoldedToEmpleado(best!) : null;
+  }
+
+  String _normalizeName(String s) {
+    final String lower = s.toLowerCase();
+    const Map<String, String> accents = {
+      'á': 'a',
+      'é': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ú': 'u',
+      'ü': 'u',
+      'ñ': 'n',
+    };
+    String out = lower;
+    accents.forEach((String k, String v) {
+      out = out.replaceAll(k, v);
+    });
+    out = out.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return out;
+  }
+
+  int _nameSimilarityScore(String a, String b) {
+    if (a == b) return 100;
+    // Simple puntuación por prefijo y substring
+    if (a.isEmpty || b.isEmpty) return 0;
+    int score = 0;
+    if (a.startsWith(b) || b.startsWith(a)) score += 40;
+    if (a.contains(b) || b.contains(a)) score += 30;
+    // Longitud relativa
+    final int lenDiff = (a.length - b.length).abs();
+    score += (30 - (lenDiff > 30 ? 30 : lenDiff));
+    if (score < 0) score = 0;
+    if (score > 100) score = 100;
+    return score;
+  }
+
+  Map<String, dynamic> _mapHoldedToEmpleado(Map<String, dynamic> c) {
+    // Normaliza claves de Holded a nuestro modelo genérico
+    return <String, dynamic>{
+      'dni': c['nif'] ?? c['vatnumber'],
+      'email': c['email'],
+      'telefono': c['phone'],
+      'direccion': c['address'],
+      'ciudad': c['city'],
+      'cp': c['zip'],
+      'provincia': c['province'] ?? c['state'],
+      // Campos que Holded normalmente no provee
+      'puesto': c['jobTitle'],
+      'departamento': c['department'],
+    };
   }
 
   String _val(dynamic v, {String or = 'No especificado'}) {

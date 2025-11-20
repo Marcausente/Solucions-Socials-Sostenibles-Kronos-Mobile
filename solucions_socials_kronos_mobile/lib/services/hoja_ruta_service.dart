@@ -193,21 +193,29 @@ class HojaRutaService {
 
   /// Obtiene detalles de un empleado (intenta tabla 'empleados' y fallback a 'employees')
   Future<Map<String, dynamic>?> getEmpleadoDetalle(String empleadoId) async {
+    // Intentar tabla 'empleados'; si no existe o falla, ignorar y seguir
+    Map<String, dynamic>? data;
     try {
-      Map<String, dynamic>? data = await _client
+      data = await _client
           .from('empleados')
           .select('*')
           .eq('id', empleadoId)
           .maybeSingle();
-      data ??= await _client
-          .from('employees')
-          .select('*')
-          .eq('id', empleadoId)
-          .maybeSingle();
-      return data;
-    } catch (e) {
-      throw Exception('Error al obtener los datos del empleado: $e');
+    } catch (_) {
+      // ignorado: la relación puede no existir en algunos entornos
     }
+    if (data == null) {
+      try {
+        data = await _client
+            .from('employees')
+            .select('*')
+            .eq('id', empleadoId)
+            .maybeSingle();
+      } catch (_) {
+        // ignorado
+      }
+    }
+    return data;
   }
 
   /// Marca/Desmarca una tarea del checklist

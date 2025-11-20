@@ -101,6 +101,23 @@ class HoldedService {
     }
     return all;
   }
+
+  Future<Map<String, dynamic>?> getContactById({
+    required HoldedCompany company,
+    required String contactId,
+  }) async {
+    final http.Response resp = await client.get(
+      '/contacts/$contactId',
+      company: company,
+    );
+    if (resp.statusCode == 404) return null;
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final dynamic data = jsonDecode(resp.body);
+      if (data is Map<String, dynamic>) return data;
+      return null;
+    }
+    throw Exception('Holded error ${resp.statusCode}: ${resp.body}');
+  }
 }
 
 
