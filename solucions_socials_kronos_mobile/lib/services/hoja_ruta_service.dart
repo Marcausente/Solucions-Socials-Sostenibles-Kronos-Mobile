@@ -75,16 +75,16 @@ class HojaRutaService {
   /// Obtiene el histórico de hojas de ruta, ordenado por actualización descendente
   Future<List<Map<String, dynamic>>> getHistoricoHojasRuta({
     int limit = 100,
-    int offset = 0,
+    int offset = 1, // por defecto omitimos la primera (actual), como en desktop
   }) async {
     try {
       final int end = offset + limit - 1;
       final List<dynamic> data = await _client
           .from('hojas_ruta')
           .select(
-            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, created_at, updated_at',
+            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas',
           )
-          .order('updated_at', ascending: false)
+          .order('fecha_servicio', ascending: false)
           .range(offset, end);
       return data.cast<Map<String, dynamic>>();
     } catch (e) {
