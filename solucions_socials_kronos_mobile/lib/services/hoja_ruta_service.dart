@@ -60,7 +60,7 @@ class HojaRutaService {
           .select(
             'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable',
           )
-          .order('updated_at', ascending: false)
+          .order('fecha_servicio', ascending: false)
           .limit(1);
 
       if (data.isNotEmpty) {
@@ -69,6 +69,22 @@ class HojaRutaService {
       return null;
     } catch (e) {
       throw Exception('Error al obtener la hoja de ruta actual: $e');
+    }
+  }
+
+  /// Obtiene una hoja de ruta por su ID
+  Future<Map<String, dynamic>?> getHojaRutaById(String hojaId) async {
+    try {
+      final Map<String, dynamic>? data = await _client
+          .from('hojas_ruta')
+          .select(
+            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable',
+          )
+          .eq('id', hojaId)
+          .maybeSingle();
+      return data;
+    } catch (e) {
+      throw Exception('Error al obtener la hoja de ruta por id: $e');
     }
   }
 

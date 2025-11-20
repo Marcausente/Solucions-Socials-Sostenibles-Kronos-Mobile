@@ -521,7 +521,17 @@ class _RutaScreenState extends State<RutaScreen> {
         hojaId: _hojaRutaActual!['id'] as String,
         nombreFirmante: nombre,
       );
-      await _loadHojaRutaActual();
+      // Recargar exactamente la hoja firmada por ID para evitar desajustes
+      final String id = _hojaRutaActual!['id'] as String;
+      final Map<String, dynamic>? refreshed = await _hojaRutaService
+          .getHojaRutaById(id);
+      if (mounted && refreshed != null) {
+        setState(() {
+          _hojaRutaActual = refreshed;
+        });
+      } else {
+        await _loadHojaRutaActual();
+      }
       _showSnack('Hoja verificada por $nombre');
     } catch (e) {
       _showSnack('No se pudo verificar: $e');
