@@ -305,7 +305,6 @@ class _RutaScreenState extends State<RutaScreen> {
                         primaryDark: primaryDark,
                         onTapConfirmar: () =>
                             _showSnack('Confirmar Lista y material'),
-                        onTapEliminar: () => _showSnack('Eliminar'),
                         onTapHistorico: () => _showSnack('Histórico'),
                       ),
                     ],
@@ -664,14 +663,12 @@ class _ActionList extends StatelessWidget {
     required this.primary,
     required this.primaryDark,
     required this.onTapConfirmar,
-    required this.onTapEliminar,
     required this.onTapHistorico,
   });
 
   final Color primary;
   final Color primaryDark;
   final VoidCallback onTapConfirmar;
-  final VoidCallback onTapEliminar;
   final VoidCallback onTapHistorico;
 
   @override
@@ -681,11 +678,6 @@ class _ActionList extends StatelessWidget {
         label: 'Confirmar Lista y material',
         icon: Icons.checklist_outlined,
         onTap: onTapConfirmar,
-      ),
-      _ActionItem(
-        label: 'Eliminar',
-        icon: Icons.delete_outline,
-        onTap: onTapEliminar,
       ),
       _ActionItem(
         label: 'Histórico',
