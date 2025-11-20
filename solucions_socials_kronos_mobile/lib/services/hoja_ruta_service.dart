@@ -72,6 +72,26 @@ class HojaRutaService {
     }
   }
 
+  /// Obtiene el histórico de hojas de ruta, ordenado por actualización descendente
+  Future<List<Map<String, dynamic>>> getHistoricoHojasRuta({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    try {
+      final int end = offset + limit - 1;
+      final List<dynamic> data = await _client
+          .from('hojas_ruta')
+          .select(
+            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, created_at, updated_at',
+          )
+          .order('updated_at', ascending: false)
+          .range(offset, end);
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Error al obtener el histórico de hojas de ruta: $e');
+    }
+  }
+
   /// Obtiene el personal de una hoja de ruta
   Future<List<Map<String, dynamic>>> getPersonalHojaRuta(
     String hojaRutaId,
@@ -118,7 +138,9 @@ class HojaRutaService {
     try {
       final List<dynamic> data = await _client
           .from('hojas_ruta_checklist')
-          .select('id, hoja_ruta_id, tipo, fase, tarea_id, task, completed, assigned_to, priority')
+          .select(
+            'id, hoja_ruta_id, tipo, fase, tarea_id, task, completed, assigned_to, priority',
+          )
           .eq('hoja_ruta_id', hojaRutaId)
           .order('tipo')
           .order('fase');
@@ -147,7 +169,9 @@ class HojaRutaService {
           .eq('hoja_ruta_id', hojaRutaId)
           .eq('tipo', tipo)
           .eq('tarea_id', tareaId);
-      query = fase == null ? query.filter('fase', 'is', null) : query.eq('fase', fase);
+      query = fase == null
+          ? query.filter('fase', 'is', null)
+          : query.eq('fase', fase);
       await query;
     } catch (e) {
       throw Exception('Error al actualizar la tarea del checklist: $e');
@@ -169,11 +193,12 @@ class HojaRutaService {
           .eq('hoja_ruta_id', hojaRutaId)
           .eq('tipo', tipo)
           .eq('tarea_id', tareaId);
-      query = fase == null ? query.filter('fase', 'is', null) : query.eq('fase', fase);
+      query = fase == null
+          ? query.filter('fase', 'is', null)
+          : query.eq('fase', fase);
       await query;
     } catch (e) {
       throw Exception('Error al actualizar la prioridad: $e');
     }
   }
-
 }

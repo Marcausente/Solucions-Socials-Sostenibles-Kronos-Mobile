@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../services/auth_service.dart';
 import '../../services/hoja_ruta_service.dart';
 import '../../utils/date_formatter.dart';
+import 'ruta_historico_screen.dart';
 
 class RutaScreen extends StatefulWidget {
   const RutaScreen({super.key});
@@ -305,7 +306,14 @@ class _RutaScreenState extends State<RutaScreen> {
                         primaryDark: primaryDark,
                         onTapConfirmar: () =>
                             _showSnack('Confirmar Lista y material'),
-                        onTapHistorico: () => _showSnack('Histórico'),
+                        onTapHistorico: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (BuildContext context) =>
+                                  const RutaHistoricoScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
