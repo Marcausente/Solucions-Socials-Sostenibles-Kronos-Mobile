@@ -808,8 +808,35 @@ class _RutaScreenState extends State<RutaScreen> {
   }
 
   void _verDatosEmpleado(Map<String, dynamic> empleado) {
-    // TODO: Implementar vista de datos del empleado
-    _showSnack('Ver datos de ${empleado['nombre']} (próximamente)');
+    final String empleadoId = empleado['empleado_id'] as String? ?? '';
+    final String nombre = empleado['nombre'] as String? ?? 'Empleado';
+    if (empleadoId.isEmpty) {
+      _showSnack('No se encontró el identificador del empleado');
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        const Color primary = Color(0xFF4CAF51);
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (BuildContext context, ScrollController scrollController) {
+            return _EmpleadoDetalleSheet(
+              empleadoId: empleadoId,
+              nombre: nombre,
+              primary: primary,
+              service: _hojaRutaService,
+              controller: scrollController,
+            );
+          },
+        );
+      },
+    );
   }
 
   bool get _estaFirmada {
@@ -981,6 +1008,413 @@ class _ActionButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EmpleadoDetalleSheet extends StatefulWidget {
+  const _EmpleadoDetalleSheet({
+    required this.empleadoId,
+    required this.nombre,
+    required this.primary,
+    required this.service,
+    required this.controller,
+  });
+  final String empleadoId;
+  final String nombre;
+  final Color primary;
+  final HojaRutaService service;
+  final ScrollController controller;
+
+  @override
+  State<_EmpleadoDetalleSheet> createState() => _EmpleadoDetalleSheetState();
+}
+
+class _EmpleadoDetalleSheetState extends State<_EmpleadoDetalleSheet> {
+  Map<String, dynamic>? _data;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final Map<String, dynamic>? d = await widget.service.getEmpleadoDetalle(
+        widget.empleadoId,
+      );
+      if (mounted) {
+        setState(() {
+          _data = d;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al cargar empleado: $e')));
+    }
+  }
+
+  String _val(dynamic v, {String or = 'No especificado'}) {
+    if (v == null) return or;
+    if (v is String && v.trim().isEmpty) return or;
+    return '$v';
+  }
+
+  String _fmtFecha(dynamic v) {
+    if (v is String) {
+      final DateTime? dt = DateTime.tryParse(v);
+      if (dt != null) return DateFormatter.formatDate(dt.toLocal());
+    }
+    return 'No especificado';
+  }
+
+  int? _edad(dynamic v) {
+    if (v is String) {
+      final DateTime? dt = DateTime.tryParse(v);
+      if (dt != null) {
+        final DateTime now = DateTime.now();
+        int age = now.year - dt.year;
+        if (now.month < dt.month ||
+            (now.month == dt.month && now.day < dt.day)) {
+          age--;
+        }
+        return age;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F1216) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              controller: widget.controller,
+              slivers: <Widget>[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: widget.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: widget.primary.withOpacity(0.25),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.person_outline,
+                            color: widget.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                widget.nombre,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: fg,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Ficha de empleado',
+                                style: TextStyle(color: fg.withOpacity(0.7)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(Icons.close, color: fg.withOpacity(0.7)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: <Widget>[
+                        _SectionCard(
+                          title: 'Información Personal',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: <Widget>[
+                            _KVRow(
+                              label: 'DNI/NIE',
+                              value: _val(_data?['dni'] ?? _data?['dni_nie']),
+                            ),
+                            _KVRow(
+                              label: 'NSS',
+                              value: _val(_data?['nss'] ?? _data?['num_ss']),
+                            ),
+                            _KVRow(
+                              label: 'Fecha nacimiento',
+                              value: _fmtFecha(
+                                _data?['fecha_nacimiento'] ??
+                                    _data?['birthdate'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Edad',
+                              value:
+                                  (_edad(
+                                    _data?['fecha_nacimiento'] ??
+                                        _data?['birthdate'],
+                                  )?.toString()) ??
+                                  'No especificado',
+                            ),
+                            _KVRow(
+                              label: 'Género',
+                              value: _val(_data?['genero'] ?? _data?['gender']),
+                            ),
+                            _KVRow(
+                              label: 'Nacionalidad',
+                              value: _val(
+                                _data?['nacionalidad'] ?? _data?['nationality'],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'Contacto',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: <Widget>[
+                            _KVRow(
+                              label: 'Correo',
+                              value: _val(_data?['email']),
+                            ),
+                            _KVRow(
+                              label: 'Teléfono',
+                              value: _val(
+                                _data?['telefono'] ?? _data?['phone'],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'Información Laboral',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: <Widget>[
+                            _KVRow(
+                              label: 'Puesto',
+                              value: _val(
+                                _data?['puesto'] ?? _data?['position'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Departamento',
+                              value: _val(
+                                _data?['departamento_id'] ??
+                                    _data?['departamento'] ??
+                                    _data?['department_id'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Fecha alta',
+                              value: _fmtFecha(
+                                _data?['fecha_alta'] ?? _data?['hire_date'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Estado',
+                              value: _val(
+                                _data?['estado'] ??
+                                    _data?['status'] ??
+                                    'Activo',
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Lugar trabajo',
+                              value: _val(
+                                _data?['centro_id'] ?? _data?['workplace_id'],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'Dirección',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: <Widget>[
+                            _KVRow(
+                              label: 'Dirección',
+                              value: _val(
+                                _data?['direccion'] ?? _data?['address'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Ciudad',
+                              value: _val(_data?['ciudad'] ?? _data?['city']),
+                            ),
+                            _KVRow(
+                              label: 'Código postal',
+                              value: _val(
+                                _data?['cp'] ?? _data?['postal_code'],
+                              ),
+                            ),
+                            _KVRow(
+                              label: 'Provincia',
+                              value: _val(
+                                _data?['provincia'] ?? _data?['province'],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'Información Financiera',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: <Widget>[
+                            _KVRow(label: 'IBAN', value: _val(_data?['iban'])),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'Historial de Servicios',
+                          primary: widget.primary,
+                          isDark: isDark,
+                          children: const <Widget>[
+                            _KVRow(label: 'Estado', value: 'No disponible'),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.primary,
+    required this.isDark,
+    required this.children,
+  });
+  final String title;
+  final Color primary;
+  final bool isDark;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _KVRow extends StatelessWidget {
+  const _KVRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 150,
+            child: Text(label, style: TextStyle(color: fg.withOpacity(0.7))),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
