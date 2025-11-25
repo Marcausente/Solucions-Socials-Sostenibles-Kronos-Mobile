@@ -1370,8 +1370,29 @@ class _ChecklistCard extends StatelessWidget {
                 child: CircularProgressIndicator(),
               ),
             )
+          else if (generalPre.isEmpty &&
+              generalDurante.isEmpty &&
+              generalPost.isEmpty &&
+              equipamiento.isEmpty &&
+              menus.isEmpty &&
+              bebidas.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No hay checklist cargada',
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.color
+                        ?.withOpacity(0.6),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            )
           else
-
             Column(
               children: <Widget>[
                 TabBar(
