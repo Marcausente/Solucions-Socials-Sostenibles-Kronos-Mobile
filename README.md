@@ -184,9 +184,9 @@ Ver [ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalles técnicos.
 ### 📥 Descarga la última versión
 
 **APK para Android:**  
-> 🔗 **[Descargar APK aquí]** _(pendiente de publicar)_
+> 🔗 **[Descargar SSS Kronos Mobile v1.0.0](https://github.com/Marcausente/Solucions-Socials-Sostenibles-Kronos-Mobile/releases/download/v1.0.0/SSS-Kronos-Mobile-v1.0.0.apk)**
 
-La aplicación se distribuye mediante archivo APK para dispositivos Android. Una vez generada, el enlace estará disponible aquí.
+O visita la página de releases para ver todas las versiones: **[Releases](https://github.com/Marcausente/Solucions-Socials-Sostenibles-Kronos-Mobile/releases)**
 
 ---
 
