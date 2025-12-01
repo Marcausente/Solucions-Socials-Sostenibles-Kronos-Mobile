@@ -15,7 +15,7 @@ class RutaScreen extends StatefulWidget {
 }
 
 class _RutaScreenState extends State<RutaScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
 
   late final AuthService _authService;
@@ -47,6 +47,7 @@ class _RutaScreenState extends State<RutaScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authService = AuthService(Supabase.instance.client);
     _hojaRutaService = HojaRutaService(Supabase.instance.client);
     _tabController = TabController(length: 4, vsync: this);
@@ -58,8 +59,19 @@ class _RutaScreenState extends State<RutaScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refrescar cuando la app vuelve al foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadHojaRutaActual();
+      _loadEstadisticas();
+    }
   }
 
   Future<void> _loadUserRole() async {

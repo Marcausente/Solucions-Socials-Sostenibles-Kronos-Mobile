@@ -52,15 +52,17 @@ class HojaRutaService {
     }
   }
 
-  /// Obtiene la hoja de ruta más reciente (última actualizada)
+  /// Obtiene la hoja de ruta más reciente (última creada/actualizada)
   Future<Map<String, dynamic>?> getHojaRutaActual() async {
     try {
+      // Ordenar por updated_at descendente para obtener la más recientemente actualizada
+      // Si no hay updated_at, usar fecha_creacion como fallback
       final List<dynamic> data = await _client
           .from('hojas_ruta')
           .select(
             'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable, personal_text',
           )
-          .order('fecha_servicio', ascending: false)
+          .order('updated_at', ascending: false)
           .limit(1);
 
       if (data.isNotEmpty) {
