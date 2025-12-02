@@ -62,7 +62,7 @@ class HojaRutaService {
           .select(
             'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable, personal_text',
           )
-          .order('updated_at', ascending: false)
+          .order('fecha_servicio', ascending: false)
           .limit(1);
 
       if (data.isNotEmpty) {

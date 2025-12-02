@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../utils/date_formatter.dart';
 import '../../services/hoja_ruta_service.dart';
+import 'ruta_screen.dart';
 
 class RutaHistoricoScreen extends StatefulWidget {
   const RutaHistoricoScreen({super.key});
@@ -213,6 +214,27 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
                           label: 'Dirección',
                           value: direccion,
                           fg: fg,
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (BuildContext context) =>
+                                      RutaScreen(hojaRutaId: item['id'] as String),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('Abrir y Editar'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: primary,
+                              side: BorderSide(color: primary.withOpacity(0.5)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
                         ),
                       ],
                     ),

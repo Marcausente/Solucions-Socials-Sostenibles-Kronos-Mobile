@@ -8,7 +8,9 @@ import '../../utils/date_formatter.dart';
 import 'ruta_historico_screen.dart';
 
 class RutaScreen extends StatefulWidget {
-  const RutaScreen({super.key});
+  const RutaScreen({super.key, this.hojaRutaId});
+
+  final String? hojaRutaId;
 
   @override
   State<RutaScreen> createState() => _RutaScreenState();
@@ -204,7 +206,9 @@ class _RutaScreenState extends State<RutaScreen>
     });
 
     try {
-      final hojaRuta = await _hojaRutaService.getHojaRutaActual();
+      final hojaRuta = widget.hojaRutaId != null
+          ? await _hojaRutaService.getHojaRutaById(widget.hojaRutaId!)
+          : await _hojaRutaService.getHojaRutaActual();
       if (mounted) {
         setState(() {
           _hojaRutaActual = hojaRuta;
@@ -290,13 +294,13 @@ class _RutaScreenState extends State<RutaScreen>
         ),
         leadingWidth: 56,
         titleSpacing: 8,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Hoja de Ruta',
+              widget.hojaRutaId != null ? 'Editando Histórico' : 'Hoja de Ruta',
               style: TextStyle(
-                color: Colors.white,
+                color: widget.hojaRutaId != null ? Colors.amber : Colors.white,
                 fontWeight: FontWeight.w700,
               ),
             ),
