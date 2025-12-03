@@ -815,6 +815,20 @@ class _RutaScreenState extends State<RutaScreen>
     required bool current,
   }) async {
     if (_hojaRutaActual?['id'] == null) return;
+
+    // Si se intenta desmarcar (current == true), verificar permisos
+    if (current) {
+      final bool canUncheck =
+          _userRole == 'admin' ||
+          _userRole == 'management' ||
+          _userRole == 'manager' ||
+          _userRole == 'jefe';
+      if (!canUncheck) {
+        _showSnack('No tienes permisos para desmarcar esta casilla');
+        return;
+      }
+    }
+
     try {
       await _hojaRutaService.actualizarTareaChecklist(
         hojaRutaId: _hojaRutaActual!['id'] as String,
