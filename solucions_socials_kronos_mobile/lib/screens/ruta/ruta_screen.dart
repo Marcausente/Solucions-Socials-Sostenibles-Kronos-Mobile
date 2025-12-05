@@ -25,6 +25,7 @@ class _RutaScreenState extends State<RutaScreen>
   int _totalHojasRuta = 0;
   DateTime? _ultimaActualizacion;
   bool _loadingStats = true;
+  String? _currentHojaId;
   Map<String, dynamic>? _hojaRutaActual;
   bool _loadingHojaRuta = true;
   List<Map<String, dynamic>> _personal = <Map<String, dynamic>>[];
@@ -54,6 +55,7 @@ class _RutaScreenState extends State<RutaScreen>
     _hojaRutaService = HojaRutaService(Supabase.instance.client);
     _tabController = TabController(length: 4, vsync: this);
     _loadUserRole();
+    _currentHojaId = widget.hojaRutaId;
     _loadPersonal();
     _loadEstadisticas();
     _loadHojaRutaActual();
@@ -206,8 +208,8 @@ class _RutaScreenState extends State<RutaScreen>
     });
 
     try {
-      final hojaRuta = widget.hojaRutaId != null
-          ? await _hojaRutaService.getHojaRutaById(widget.hojaRutaId!)
+      final hojaRuta = _currentHojaId != null
+          ? await _hojaRutaService.getHojaRutaById(_currentHojaId!)
           : await _hojaRutaService.getHojaRutaActual();
       if (mounted) {
         setState(() {
@@ -422,13 +424,19 @@ class _RutaScreenState extends State<RutaScreen>
                         primaryDark: primaryDark,
                         confirmDisabled: _estaFirmada,
                         onTapConfirmar: _confirmarListaYMaterial,
-                        onTapHistorico: () {
-                          Navigator.of(context).push(
+                        onTapHistorico: () async {
+                          final result = await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (BuildContext context) =>
                                   const RutaHistoricoScreen(),
                             ),
                           );
+                          if (result != null && result is String) {
+                            setState(() {
+                              _currentHojaId = result;
+                            });
+                            _loadHojaRutaActual();
+                          }
                         },
                       ),
                     ],

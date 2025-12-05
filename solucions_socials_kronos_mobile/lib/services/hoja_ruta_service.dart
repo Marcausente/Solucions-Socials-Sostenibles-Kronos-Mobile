@@ -60,9 +60,9 @@ class HojaRutaService {
       final List<dynamic> data = await _client
           .from('hojas_ruta')
           .select(
-            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable, personal_text',
+            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, notas, horarios, firma_info, firma_responsable, personal_text, updated_at',
           )
-          .order('fecha_servicio', ascending: false)
+          .order('updated_at', ascending: false)
           .limit(1);
 
       if (data.isNotEmpty) {
@@ -100,9 +100,9 @@ class HojaRutaService {
       final List<dynamic> data = await _client
           .from('hojas_ruta')
           .select(
-            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas',
+            'id, fecha_servicio, cliente, contacto, direccion, transportista, responsable, num_personas, updated_at',
           )
-          .order('fecha_servicio', ascending: false)
+          .order('updated_at', ascending: false)
           .range(offset, end);
       return data.cast<Map<String, dynamic>>();
     } catch (e) {

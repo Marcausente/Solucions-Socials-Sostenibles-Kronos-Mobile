@@ -88,7 +88,7 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'Histórico',
+              'Otras hojas de ruta',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
@@ -96,7 +96,7 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
             ),
             SizedBox(height: 4),
             Text(
-              'Hojas de ruta subidas',
+              'Selecciona para cargar',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
@@ -220,15 +220,10 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (BuildContext context) =>
-                                      RutaScreen(hojaRutaId: item['id'] as String),
-                                ),
-                              );
+                              Navigator.of(context).pop(item['id']);
                             },
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('Abrir y Editar'),
+                            icon: const Icon(Icons.upload_file_outlined, size: 18),
+                            label: const Text('Cargar'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: primary,
                               side: BorderSide(color: primary.withOpacity(0.5)),
