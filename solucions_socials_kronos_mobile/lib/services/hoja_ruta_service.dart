@@ -302,12 +302,45 @@ class HojaRutaService {
   /// Obtiene las notas de la checklist
   Future<List<Map<String, dynamic>>> getChecklistNotes(String hojaRutaId) async {
     try {
-      final List<dynamic> data = await _client
+      // 1. Fetch notes alone
+      final List<dynamic> notesData = await _client
           .from('checklist_notes')
-          .select('id, hoja_ruta_id, user_id, content, created_at, user_profiles(name)')
+          .select('id, hoja_ruta_id, user_id, content, created_at')
           .eq('hoja_ruta_id', hojaRutaId)
           .order('created_at', ascending: true);
-      return data.cast<Map<String, dynamic>>();
+      
+      final List<Map<String, dynamic>> notes = notesData.cast<Map<String, dynamic>>();
+
+      if (notes.isEmpty) return notes;
+
+      // 2. Fetch profiles for these users manually
+      final Set<String> userIds = notes
+          .map((e) => e['user_id'] as String?)
+          .where((e) => e != null)
+          .cast<String>()
+          .toSet();
+
+      if (userIds.isNotEmpty) {
+        final List<dynamic> profilesData = await _client
+            .from('user_profiles')
+            .select('id, name')
+            .inFilter('id', userIds.toList());
+        
+        final Map<String, String> profileMap = {
+          for (var p in profilesData) 
+             if (p['id'] != null) p['id'] as String: p['name'] as String? ?? 'Usuario'
+        };
+
+        // 3. Merge names
+        for (var note in notes) {
+          final String? uid = note['user_id'] as String?;
+          if (uid != null) {
+            note['user_profiles'] = {'name': profileMap[uid] ?? 'Usuario'};
+          }
+        }
+      }
+      
+      return notes;
     } catch (e) {
       // Si la tabla no existe o hay error, devolvemos lista vacía para no romper la app
       // en caso de que la migración no se haya ejecutado aún.
