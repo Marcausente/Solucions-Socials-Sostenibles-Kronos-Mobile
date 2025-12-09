@@ -6,7 +6,9 @@ import '../../services/hoja_ruta_service.dart';
 import 'ruta_screen.dart';
 
 class RutaHistoricoScreen extends StatefulWidget {
-  const RutaHistoricoScreen({super.key});
+  const RutaHistoricoScreen({super.key, this.currentId});
+
+  final String? currentId;
 
   @override
   State<RutaHistoricoScreen> createState() => _RutaHistoricoScreenState();
@@ -19,6 +21,7 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
   late final HojaRutaService _hojaRutaService;
   bool _loading = true;
   List<Map<String, dynamic>> _historico = <Map<String, dynamic>>[];
+  Map<String, dynamic>? _hojaActual;
 
   @override
   void initState() {
@@ -32,9 +35,13 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
     try {
       final List<Map<String, dynamic>> data = await _hojaRutaService
           .getHistoricoHojasRuta(limit: 200);
+      final Map<String, dynamic>? actual =
+          await _hojaRutaService.getHojaRutaActual();
+
       if (mounted) {
         setState(() {
           _historico = data;
+          _hojaActual = actual;
           _loading = false;
         });
       }
@@ -121,124 +128,236 @@ class _RutaHistoricoScreenState extends State<RutaHistoricoScreen> {
           ? _EmptyState(isDark: isDark)
           : RefreshIndicator(
               onRefresh: _loadHistorico,
-              child: ListView.separated(
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                itemBuilder: (BuildContext context, int index) {
-                  final Map<String, dynamic> item = _historico[index];
-                  final DateTime? fechaServicio =
-                      (item['fecha_servicio'] as String?)?.let(
-                        (String s) => DateTime.tryParse(s)?.toLocal(),
-                      );
-                  final String fecha = fechaServicio != null
-                      ? DateFormatter.formatDate(fechaServicio)
-                      : '—';
-                  final String cliente = item['cliente'] as String? ?? '—';
-                  final String responsable =
-                      item['responsable'] as String? ?? '—';
-                  final int numPersonas = (item['num_personas'] as int?) ?? 0;
-                  final String direccion = item['direccion'] as String? ?? '—';
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1F2227) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.black.withOpacity(0.06),
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                children: <Widget>[
+                  if (_hojaActual != null) ...<Widget>[
+                    _buildHistoricoItem(
+                      context,
+                      _hojaActual!,
+                      isDark,
+                      fg,
+                      isActual: true,
+                      isSelected: _hojaActual!['id'] == widget.currentId,
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 24),
+                    Row(
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: primary.withOpacity(0.25),
-                                ),
-                              ),
-                              child: Text(
-                                fecha,
-                                style: const TextStyle(
-                                  color: primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                cliente,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: fg,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _InfoRow(
-                          icon: Icons.person_outline,
-                          label: 'Responsable',
-                          value: responsable,
-                          fg: fg,
-                        ),
-                        const SizedBox(height: 8),
-                        _InfoRow(
-                          icon: Icons.groups_2_outlined,
-                          label: 'Personas',
-                          value: numPersonas.toString(),
-                          fg: fg,
-                        ),
-                        const SizedBox(height: 8),
-                        _InfoRow(
-                          icon: Icons.location_on_outlined,
-                          label: 'Dirección',
-                          value: direccion,
-                          fg: fg,
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).pop(item['id']);
-                            },
-                            icon: const Icon(Icons.upload_file_outlined, size: 18),
-                            label: const Text('Cargar'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: primary,
-                              side: BorderSide(color: primary.withOpacity(0.5)),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'HISTORIAL',
+                            style: TextStyle(
+                              color: fg.withOpacity(0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
                             ),
                           ),
                         ),
+                        const Expanded(child: Divider()),
                       ],
                     ),
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemCount: _historico.length,
+                    const SizedBox(height: 16),
+                  ],
+                  if (_historico.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 40),
+                        child: Text(
+                          'No hay histórico disponible',
+                          style: TextStyle(color: fg.withOpacity(0.5)),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._historico.map(
+                      (Map<String, dynamic> item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildHistoricoItem(
+                          context,
+                          item,
+                          isDark,
+                          fg,
+                          isSelected: item['id'] == widget.currentId,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
+    );
+  }
+
+  Widget _buildHistoricoItem(
+    BuildContext context,
+    Map<String, dynamic> item,
+    bool isDark,
+    Color fg, {
+    bool isActual = false,
+    bool isSelected = false,
+  }) {
+    final DateTime? fechaServicio =
+        (item['fecha_servicio'] as String?)?.let(
+          (String s) => DateTime.tryParse(s)?.toLocal(),
+        );
+    final String fecha = fechaServicio != null
+        ? DateFormatter.formatDate(fechaServicio)
+        : '—';
+    final String cliente = item['cliente'] as String? ?? '—';
+    final String responsable =
+        item['responsable'] as String? ?? '—';
+    final int numPersonas = (item['num_personas'] as int?) ?? 0;
+    final String direccion = item['direccion'] as String? ?? '—';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: isSelected
+            ? Border.all(color: primary, width: 2)
+            : Border.all(
+                color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
+              ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? primary.withOpacity(0.1)
+                          : (isActual
+                              ? Colors.blue.withOpacity(0.1)
+                              : primary.withOpacity(0.1)),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? primary.withOpacity(0.25)
+                            : (isActual
+                                ? Colors.blue.withOpacity(0.25)
+                                : primary.withOpacity(0.25)),
+                      ),
+                    ),
+                    child: Text(
+                      isSelected
+                          ? (isActual ? 'ACTIVA' : 'VIENDO')
+                          : (isActual ? 'HOJA ACTUAL' : fecha),
+                      style: TextStyle(
+                        color: isSelected
+                            ? primary
+                            : (isActual ? Colors.blue : primary),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (isActual) ...<Widget>[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        cliente,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ] else ...<Widget>[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        cliente,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              _InfoRow(
+                icon: Icons.person_outline,
+                label: 'Responsable',
+                value: responsable,
+                fg: fg,
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.groups_2_outlined,
+                label: 'Personas',
+                value: numPersonas.toString(),
+                fg: fg,
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                icon: Icons.location_on_outlined,
+                label: 'Dirección',
+                value: direccion,
+                fg: fg,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    if (isSelected) {
+                      Navigator.of(context).pop();
+                    } else {
+                      Navigator.of(context).pop(item['id']);
+                    }
+                  },
+                  icon: Icon(
+                    isSelected
+                        ? Icons.check_circle_outline
+                        : (isActual
+                            ? Icons.refresh
+                            : Icons.upload_file_outlined),
+                    size: 18,
+                  ),
+                  label: Text(isSelected ? 'Seleccionada' : 'Cargar'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isSelected
+                        ? primary
+                        : (isActual ? Colors.blue : primary),
+                    side: BorderSide(
+                      color: isSelected
+                          ? primary.withOpacity(0.5)
+                          : (isActual
+                              ? Colors.blue.withOpacity(0.5)
+                              : primary.withOpacity(0.5)),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor:
+                        isSelected ? primary.withOpacity(0.05) : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

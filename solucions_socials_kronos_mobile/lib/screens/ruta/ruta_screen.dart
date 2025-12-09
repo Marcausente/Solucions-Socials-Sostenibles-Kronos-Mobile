@@ -46,6 +46,9 @@ class _RutaScreenState extends State<RutaScreen>
   List<Map<String, dynamic>> _ckGeneralPre = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ckGeneralDurante = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ckGeneralPost = <Map<String, dynamic>>[];
+  // Checklist Notes
+  List<Map<String, dynamic>> _checklistNotes = <Map<String, dynamic>>[];
+  bool _loadingChecklistNotes = true;
 
   @override
   void initState() {
@@ -54,8 +57,8 @@ class _RutaScreenState extends State<RutaScreen>
     _authService = AuthService(Supabase.instance.client);
     _hojaRutaService = HojaRutaService(Supabase.instance.client);
     _tabController = TabController(length: 4, vsync: this);
-    _loadUserRole();
     _currentHojaId = widget.hojaRutaId;
+    _loadUserRole();
     _loadPersonal();
     _loadEstadisticas();
     _loadHojaRutaActual();
@@ -203,14 +206,12 @@ class _RutaScreenState extends State<RutaScreen>
   }
 
   Future<void> _loadHojaRutaActual() async {
-    setState(() {
-      _loadingHojaRuta = true;
-    });
-
+    setState(() => _loadingHojaRuta = true);
     try {
       final hojaRuta = _currentHojaId != null
           ? await _hojaRutaService.getHojaRutaById(_currentHojaId!)
           : await _hojaRutaService.getHojaRutaActual();
+
       if (mounted) {
         setState(() {
           _hojaRutaActual = hojaRuta;
@@ -238,7 +239,11 @@ class _RutaScreenState extends State<RutaScreen>
         });
         // Cargar personal cuando se carga la hoja de ruta
         await _loadPersonal();
-        await _loadChecklist();
+        if (mounted) {
+          await _loadPersonal();
+          await _loadChecklist();
+          await _loadChecklistNotes();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -306,9 +311,9 @@ class _RutaScreenState extends State<RutaScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              widget.hojaRutaId != null ? 'Editando Histórico' : 'Hoja de Ruta',
-              style: TextStyle(
-                color: widget.hojaRutaId != null ? Colors.amber : Colors.white,
+              'Hoja de Ruta',
+              style: const TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -428,7 +433,10 @@ class _RutaScreenState extends State<RutaScreen>
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (BuildContext context) =>
-                                  const RutaHistoricoScreen(),
+                                  RutaHistoricoScreen(
+                                currentId: _currentHojaId ??
+                                    _hojaRutaActual?['id'] as String?,
+                              ),
                             ),
                           );
                           if (result != null && result is String) {
@@ -495,6 +503,17 @@ class _RutaScreenState extends State<RutaScreen>
                   onRefresh: _loadChecklist,
                   primary: primary,
                   tabController: _tabController,
+                ),
+                const SizedBox(height: 16),
+                // Notas de Checklist
+                _ChecklistNotesCard(
+                  notes: _checklistNotes,
+                  loading: _loadingChecklistNotes,
+                  currentUserId: _authService.currentUser?.id,
+                  onAdd: _addChecklistNote,
+                  onEdit: _editChecklistNote,
+                  onDelete: _deleteChecklistNote,
+                  primary: primary,
                 ),
 
                 const SizedBox(height: 16),
@@ -813,6 +832,62 @@ class _RutaScreenState extends State<RutaScreen>
         setState(() => _loadingChecklist = false);
         _showSnack('Error al cargar checklist: $e');
       }
+    }
+  }
+
+  Future<void> _loadChecklistNotes() async {
+    if (_hojaRutaActual?['id'] == null) return;
+    setState(() => _loadingChecklistNotes = true);
+    try {
+      final notes = await _hojaRutaService.getChecklistNotes(
+        _hojaRutaActual!['id'] as String,
+      );
+      if (mounted) {
+        setState(() {
+          _checklistNotes = notes;
+          _loadingChecklistNotes = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingChecklistNotes = false);
+        // No mostrar error invasivo si falla por falta de tabla, solo log
+        print('Error loading checklist notes: $e');
+      }
+    }
+  }
+
+  Future<void> _addChecklistNote(String content) async {
+    if (_hojaRutaActual?['id'] == null) return;
+    try {
+      await _hojaRutaService.addChecklistNote(
+        hojaRutaId: _hojaRutaActual!['id'] as String,
+        content: content,
+      );
+      await _loadChecklistNotes();
+      _showSnack('Nota añadida');
+    } catch (e) {
+      _showSnack('Error al añadir nota: $e');
+    }
+  }
+
+  Future<void> _editChecklistNote(String noteId, String content) async {
+    try {
+      await _hojaRutaService.updateChecklistNote(noteId: noteId, content: content);
+      await _loadChecklistNotes();
+      _showSnack('Nota actualizada');
+    } catch (e) {
+      _showSnack('Error al actualizar nota: $e');
+    }
+  }
+
+  Future<void> _deleteChecklistNote(String noteId) async {
+    try {
+      await _hojaRutaService.deleteChecklistNote(noteId);
+      await _loadChecklistNotes();
+      _showSnack('Nota eliminada');
+    } catch (e) {
+      _showSnack('Error al eliminar nota: $e');
     }
   }
 
@@ -2702,10 +2777,6 @@ class _EditarHorasDialogState extends State<_EditarHorasDialog> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: primary, width: 2),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
                     ),
                   ),
                 ),
@@ -2718,15 +2789,7 @@ class _EditarHorasDialogState extends State<_EditarHorasDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'horas',
-                style: TextStyle(fontSize: 14, color: fg.withOpacity(0.6)),
-              ),
-            ),
             const SizedBox(height: 24),
-            // Botones
             Row(
               children: <Widget>[
                 Expanded(
@@ -2739,27 +2802,397 @@ class _EditarHorasDialogState extends State<_EditarHorasDialog> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      final double? horas = double.tryParse(_controller.text);
-                      if (horas != null && horas >= 0) {
-                        Navigator.of(context).pop(horas);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Por favor, introduce un número válido',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                      final double? val = double.tryParse(_controller.text);
+                      if (val != null) {
+                        Navigator.of(context).pop(val);
                       }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text('Guardar'),
                   ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChecklistNotesCard extends StatelessWidget {
+  const _ChecklistNotesCard({
+    required this.notes,
+    required this.loading,
+    required this.currentUserId,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+    required this.primary,
+  });
+
+  final List<Map<String, dynamic>> notes;
+  final bool loading;
+  final String? currentUserId;
+  final Function(String) onAdd;
+  final Function(String, String) onEdit;
+  final Function(String) onDelete;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fg = isDark ? Colors.white : Colors.black;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F2227) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white10 : primary.withOpacity(0.20),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Notas de Checklist',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              if (loading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!loading && notes.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  'No hay notas en la checklist',
+                  style: TextStyle(
+                    color: fg.withOpacity(0.6),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: <Widget>[
+                for (final note in notes)
+                  _ChecklistNoteItem(
+                    note: note,
+                    currentUserId: currentUserId,
+                    onEdit: onEdit,
+                    onDelete: onDelete,
+                    primary: primary,
+                    isDark: isDark,
+                    fg: fg,
+                  ),
+              ],
+            ),
+          const SizedBox(height: 16),
+          // Botón añadir nota
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showAddNoteDialog(context),
+              icon: Icon(Icons.add, color: primary),
+              label: Text(
+                'Añadir Nota',
+                style: TextStyle(color: primary, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: BorderSide(color: primary.withOpacity(0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAddNoteDialog(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return _NoteDialog(
+          title: 'Añadir Nota de Checklist',
+          controller: controller,
+          primary: primary,
+        );
+      },
+    );
+
+    if (result != null && result.trim().isNotEmpty) {
+      onAdd(result.trim());
+    }
+  }
+}
+
+class _ChecklistNoteItem extends StatelessWidget {
+  const _ChecklistNoteItem({
+    required this.note,
+    required this.currentUserId,
+    required this.onEdit,
+    required this.onDelete,
+    required this.primary,
+    required this.isDark,
+    required this.fg,
+  });
+
+  final Map<String, dynamic> note;
+  final String? currentUserId;
+  final Function(String, String) onEdit;
+  final Function(String) onDelete;
+  final Color primary;
+  final bool isDark;
+  final Color fg;
+
+  @override
+  Widget build(BuildContext context) {
+    final String content = note['content'] as String? ?? '';
+    final String authorName =
+        (note['user_profiles'] as Map<String, dynamic>?)?['name'] as String? ??
+        'Usuario';
+    final String userId = note['user_id'] as String? ?? '';
+    final String noteId = note['id'] as String;
+    final String dateStr = note['created_at'] as String? ?? '';
+    DateTime? date;
+    try {
+      if (dateStr.isNotEmpty) date = DateTime.parse(dateStr).toLocal();
+    } catch (_) {}
+
+    final bool isOwner = userId == currentUserId && currentUserId != null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? Colors.white10 : primary.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.person, size: 16, color: primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  authorName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: primary,
+                  ),
+                ),
+              ),
+              if (date != null)
+                Text(
+                  DateFormatter.formatDateTime(date, pattern: 'dd/MM HH:mm'),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: fg.withOpacity(0.5),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: 14,
+              color: fg,
+              height: 1.3,
+            ),
+          ),
+          if (isOwner) ...<Widget>[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                InkWell(
+                  onTap: () => _showEditDialog(context, noteId, content),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.edit, size: 16, color: fg.withOpacity(0.5)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () => _confirmDelete(context, noteId),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 16,
+                      color: Colors.red.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(
+    BuildContext context,
+    String noteId,
+    String currentContent,
+  ) async {
+    final TextEditingController controller = TextEditingController(
+      text: currentContent,
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return _NoteDialog(
+          title: 'Editar Nota',
+          controller: controller,
+          primary: primary,
+        );
+      },
+    );
+
+    if (result != null && result.trim().isNotEmpty) {
+      onEdit(noteId, result.trim());
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, String noteId) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Eliminar nota'),
+          content: const Text('¿Seguro que quieres eliminar esta nota?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      onDelete(noteId);
+    }
+  }
+}
+
+class _NoteDialog extends StatelessWidget {
+  const _NoteDialog({
+    required this.title,
+    required this.controller,
+    required this.primary,
+  });
+
+  final String title;
+  final TextEditingController controller;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Escribe tu nota...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: primary, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(controller.text),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Guardar'),
                 ),
               ],
             ),

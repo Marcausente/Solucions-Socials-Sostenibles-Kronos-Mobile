@@ -294,4 +294,79 @@ class HojaRutaService {
       throw Exception('Error al actualizar la prioridad: $e');
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // CRITICAL: Checklist Notes Implementation
+  // ---------------------------------------------------------------------------
+
+  /// Obtiene las notas de la checklist
+  Future<List<Map<String, dynamic>>> getChecklistNotes(String hojaRutaId) async {
+    try {
+      final List<dynamic> data = await _client
+          .from('checklist_notes')
+          .select('id, hoja_ruta_id, user_id, content, created_at, user_profiles(name)')
+          .eq('hoja_ruta_id', hojaRutaId)
+          .order('created_at', ascending: true);
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      // Si la tabla no existe o hay error, devolvemos lista vacía para no romper la app
+      // en caso de que la migración no se haya ejecutado aún.
+      print('Error al obtener notas de checklist (posiblemente falta tabla): $e');
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  /// Añade una nota a la checklist
+  Future<void> addChecklistNote({
+    required String hojaRutaId,
+    required String content,
+  }) async {
+    try {
+      final String? uid = _client.auth.currentUser?.id;
+      if (uid == null) throw Exception('Usuario no autenticado');
+
+      await _client.from('checklist_notes').insert(<String, dynamic>{
+        'hoja_ruta_id': hojaRutaId,
+        'user_id': uid,
+        'content': content,
+      });
+    } catch (e) {
+      throw Exception('Error al añadir nota de checklist: $e');
+    }
+  }
+
+  /// Borra una nota de la checklist (solo si es el propietario)
+  Future<void> deleteChecklistNote(String noteId) async {
+    try {
+      final String? uid = _client.auth.currentUser?.id;
+      if (uid == null) throw Exception('Usuario no autenticado');
+
+      await _client
+          .from('checklist_notes')
+          .delete()
+          .eq('id', noteId)
+          .eq('user_id', uid); // Seguridad por RLS + filtro extra
+    } catch (e) {
+      throw Exception('Error al eliminar nota de checklist: $e');
+    }
+  }
+
+  /// Actualiza el contenido de una nota (solo si es el propietario)
+  Future<void> updateChecklistNote({
+    required String noteId,
+    required String content,
+  }) async {
+    try {
+      final String? uid = _client.auth.currentUser?.id;
+      if (uid == null) throw Exception('Usuario no autenticado');
+
+      await _client
+          .from('checklist_notes')
+          .update(<String, dynamic>{'content': content})
+          .eq('id', noteId)
+          .eq('user_id', uid);
+    } catch (e) {
+      throw Exception('Error al actualizar nota de checklist: $e');
+    }
+  }
 }

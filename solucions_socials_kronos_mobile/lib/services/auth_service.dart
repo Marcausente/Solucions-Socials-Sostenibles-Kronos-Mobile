@@ -60,6 +60,7 @@ class AuthService {
   }
 
   Session? get currentSession => _client.auth.currentSession;
+  User? get currentUser => _client.auth.currentUser;
 
   Future<String?> _resolveEmailForUsername(String username) async {
     // 0) Intentar RPC si existe (recomendado por RLS)
